@@ -1,19 +1,34 @@
 import React, { useState } from 'react';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { LanguageProvider, useLanguage } from './contexts/LanguageContext';
+import { NotificationProvider } from './contexts/NotificationContext';
 import LoginForm from './components/Auth/LoginForm';
 import Sidebar from './components/Layout/Sidebar';
 import Header from './components/Layout/Header';
 import Dashboard from './components/Dashboard/Dashboard';
 import OrderList from './components/Orders/OrderList';
 import CustomerList from './components/Customers/CustomerList';
+import PaymentManagement from './components/Payments/PaymentManagement';
+import AuditLogs from './components/Audit/AuditLogs';
+import NotificationContainer from './components/Common/NotificationContainer';
 
 const AppContent: React.FC = () => {
-  const { isAuthenticated } = useAuth();
+  const { user, isLoading } = useAuth();
   const { t } = useLanguage();
   const [activeTab, setActiveTab] = useState('dashboard');
 
-  if (!isAuthenticated) {
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
+          <p className="mt-4 text-gray-600">Loading...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!user) {
     return <LoginForm />;
   }
 
@@ -26,19 +41,9 @@ const AppContent: React.FC = () => {
       case 'customers':
         return <CustomerList />;
       case 'payments':
-        return (
-          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-8 text-center">
-            <h3 className="text-xl font-semibold text-gray-900 mb-2">{t('nav.payments')}</h3>
-            <p className="text-gray-600">{t('comingSoon.payments')}</p>
-          </div>
-        );
+        return <PaymentManagement />;
       case 'audit':
-        return (
-          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-8 text-center">
-            <h3 className="text-xl font-semibold text-gray-900 mb-2">{t('nav.audit')}</h3>
-            <p className="text-gray-600">{t('comingSoon.audit')}</p>
-          </div>
-        );
+        return <AuditLogs />;
       case 'settings':
         return (
           <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-8 text-center">
@@ -60,6 +65,7 @@ const AppContent: React.FC = () => {
           {renderContent()}
         </main>
       </div>
+      <NotificationContainer />
     </div>
   );
 };
@@ -68,7 +74,9 @@ function App() {
   return (
     <LanguageProvider>
       <AuthProvider>
-        <AppContent />
+        <NotificationProvider>
+          <AppContent />
+        </NotificationProvider>
       </AuthProvider>
     </LanguageProvider>
   );

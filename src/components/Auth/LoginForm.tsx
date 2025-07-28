@@ -110,7 +110,7 @@ const LoginForm: React.FC = () => {
 
           <div className="mt-6 text-center">
             <p className="text-sm text-gray-600">
-              {t('login.demo')}: <span className="font-medium">admin / admin123</span>
+              {t('login.demo')}: <span className="font-medium">Eng Ismail Mohamed</span>
             </p>
           </div>
         </div>
