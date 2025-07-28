@@ -183,11 +183,25 @@ export const customersAPI = {
     },
     
     // Smart search - automatically detects search type
-    smart: (input: string) => {
+    smart: async (input: string) => {
       const trimmedInput = input.trim();
       
-      // Don't process empty or very short inputs
+      // Don't process empty inputs
       if (trimmedInput.length === 0) {
+        return customersAPI.getLatest(); // Return latest customers instead of empty search
+      }
+      
+      // Handle very short inputs (1-2 characters) more carefully
+      if (trimmedInput.length <= 2) {
+        // For single digits like "0", "1", etc., be more cautious
+        if (/^\d$/.test(trimmedInput)) {
+          // Single digit - could be problematic, but still search
+          return customersAPI.search.general(trimmedInput);
+        } else if (/^[a-zA-Z]+$/.test(trimmedInput)) {
+          // Letters only - search by name
+          return customersAPI.search.general(trimmedInput);
+        }
+        // For other short inputs, default to general search
         return customersAPI.search.general(trimmedInput);
       }
       
@@ -212,10 +226,21 @@ export const customersAPI = {
         return customersAPI.search.byOrderId(trimmedInput);
       }
       
-      // For pure numbers, if it's short (3-6 digits), treat as order ID, otherwise treat as phone
+      // For pure numbers, if it's short (3-6 digits), try order ID first, then fallback to general
       if (/^\d+$/.test(trimmedInput)) {
         if (trimmedInput.length >= 3 && trimmedInput.length <= 6) {
-          return customersAPI.search.byOrderId(trimmedInput);
+          try {
+            return await customersAPI.search.byOrderId(trimmedInput);
+          } catch (error: any) {
+            // If order ID search fails (404), fallback to general search
+            if (error.message?.includes('No customer found with this order ID') || 
+                error.message?.includes('404')) {
+              console.log(`Order ID search failed for "${trimmedInput}", falling back to general search`);
+              return customersAPI.search.general(trimmedInput);
+            }
+            // Re-throw other errors
+            throw error;
+          }
         } else if (trimmedInput.length >= 7) {
           return customersAPI.search.byPhone(trimmedInput);
         }

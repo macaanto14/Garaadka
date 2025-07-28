@@ -104,7 +104,7 @@ const CustomerList: React.FC = () => {
   }, [viewMode, pageSize]);
 
   // Search customers
-  // Enhanced search function with smart detection
+  // Enhanced search function with smart detection and fallback
   const handleSearch = async (term: string) => {
     setSearchTerm(term);
     if (term.trim()) {
@@ -114,14 +114,35 @@ const CustomerList: React.FC = () => {
         console.log('Smart searching for:', term);
         
         // Use smart search that auto-detects search type
-        const data = await customersAPI.search.smart(term);
+        let data;
+        try {
+          data = await customersAPI.search.smart(term);
+        } catch (smartSearchError: any) {
+          // If smart search fails with 404 (no order found), try general search as fallback
+          if (smartSearchError.message?.includes('No customer found with this order ID') || 
+              smartSearchError.message?.includes('404')) {
+            console.log(`Smart search failed for "${term}", trying general search as fallback`);
+            data = await customersAPI.search.general(term);
+          } else {
+            // Re-throw other errors
+            throw smartSearchError;
+          }
+        }
+        
         console.log('Search response:', data);
         setCustomers(Array.isArray(data) ? data : []);
         setTotalPages(1);
         setTotalCustomers(Array.isArray(data) ? data.length : 0);
       } catch (err: any) {
         console.error('Search failed:', err);
-        setError(`Search failed: ${err.message || 'Please try again.'}`);
+        // More user-friendly error message for server errors
+        let errorMessage = 'Search failed. Please try again.';
+        if (err.message?.includes('500') || err.message?.includes('Internal Server Error')) {
+          errorMessage = 'Search temporarily unavailable. Please a different search term or try again later.';
+        } else if (err.message) {
+          errorMessage = `Search failed: ${err.message}`;
+        }
+        setError(errorMessage);
         setCustomers([]);
       } finally {
         setLoading(false);
@@ -181,6 +202,66 @@ const CustomerList: React.FC = () => {
     loadCustomers(1, true);
   };
 
+  // Manual phone search function
+  // Manual phone search function
+  const handlePhoneSearch = async () => {
+    if (!searchTerm.trim()) {
+      setError('Please enter a phone number to search');
+      return;
+    }
+    
+    try {
+      setLoading(true);
+      setError(null);
+      console.log('Searching by phone:', searchTerm);
+      
+      // Use phone search API
+      const data = await customersAPI.search.byPhone(searchTerm.trim());
+      console.log('Phone search response:', data);
+      
+      // Handle single customer response from phone search
+      if (data && data.customer) {
+        setCustomers([data.customer]);
+        setTotalPages(1);
+        setTotalCustomers(1);
+      } else {
+        setCustomers([]);
+        setTotalPages(1);
+        setTotalCustomers(0);
+      }
+    } catch (err: any) {
+      console.error('Phone search failed:', err);
+      // More user-friendly error message
+      let errorMessage = 'Phone search failed. Please try again.';
+      if (err.message?.includes('No customer found with this phone number') || 
+          err.message?.includes('404')) {
+        errorMessage = 'No customer found with this phone number.';
+      } else if (err.message?.includes('500') || err.message?.includes('Internal Server Error')) {
+        errorMessage = 'Search temporarily unavailable. Please try again later.';
+      } else if (err.message) {
+        errorMessage = `Search failed: ${err.message}`;
+      }
+      setError(errorMessage);
+      setCustomers([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Clear search function
+  const clearSearch = () => {
+    setSearchTerm('');
+    setError(null);
+    loadCustomers(1, true);
+  };
+
+  // Handle Enter key press in search input
+  const handleSearchKeyPress = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') {
+      handlePhoneSearch();
+    }
+  };
+
   const handlePageChange = (newPage: number) => {
     if (newPage >= 1 && newPage <= totalPages && viewMode === 'paginated') {
       setCurrentPage(newPage);
@@ -210,15 +291,39 @@ const CustomerList: React.FC = () => {
       <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center space-y-4 lg:space-y-0">
         <div className="flex flex-col sm:flex-row space-y-4 sm:space-y-0 sm:space-x-4 items-start sm:items-center">
           {/* Search */}
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
-            <input
-              type="text"
-              placeholder="Search by name, phone, or order ID..."
-              value={searchTerm}
-              onChange={(e) => handleSearch(e.target.value)}
-              className="pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent w-full sm:w-80"
-            />
+          <div className="flex items-center space-x-2">
+            <div className="relative">
+              <Phone className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+              <input
+                type="text"
+                placeholder="Enter customer phone number..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                onKeyPress={handleSearchKeyPress}
+                className="pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent w-full sm:w-80"
+              />
+            </div>
+            
+            {/* Search Button */}
+            <button
+              onClick={handlePhoneSearch}
+              disabled={loading}
+              className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 disabled:bg-blue-400 transition-colors duration-200 flex items-center space-x-2"
+            >
+              <Search className="h-4 w-4" />
+              <span>Search</span>
+            </button>
+            
+            {/* Clear Button */}
+            {searchTerm && (
+              <button
+                onClick={clearSearch}
+                className="bg-gray-500 text-white px-4 py-2 rounded-lg hover:bg-gray-600 transition-colors duration-200 flex items-center space-x-2"
+              >
+                <X className="h-4 w-4" />
+                <span>Clear</span>
+              </button>
+            )}
           </div>
           
           {/* Advanced Search Toggle */}
@@ -365,7 +470,7 @@ const CustomerList: React.FC = () => {
                   <p className="text-gray-600 text-xs">{t('customers.orders')}</p>
                 </div>
                 <div>
-                  <p className="text-2xl font-bold text-green-600">${customer.total_spent || 0}</p>
+                  <p className="text-2xl font-bold text-green-600">ETB {customer.total_spent || 0}</p>
                   <p className="text-gray-600 text-xs">{t('customers.spent')}</p>
                 </div>
                 <div>

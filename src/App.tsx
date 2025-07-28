@@ -1,7 +1,8 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { LanguageProvider, useLanguage } from './contexts/LanguageContext';
 import { NotificationProvider } from './contexts/NotificationContext';
+import { NavigationProvider, useNavigation } from './contexts/NavigationContext';
 import LoginForm from './components/Auth/LoginForm';
 import Sidebar from './components/Layout/Sidebar';
 import Header from './components/Layout/Header';
@@ -16,7 +17,7 @@ import ToastListener from './components/Common/ToastListener';
 const AppContent: React.FC = () => {
   const { user, isLoading } = useAuth();
   const { t } = useLanguage();
-  const [activeTab, setActiveTab] = useState('dashboard');
+  const { activeTab, setActiveTab } = useNavigation();
 
   if (isLoading) {
     return (
@@ -77,7 +78,9 @@ function App() {
     <LanguageProvider>
       <AuthProvider>
         <NotificationProvider>
-          <AppContent />
+          <NavigationProvider>
+            <AppContent />
+          </NavigationProvider>
         </NotificationProvider>
       </AuthProvider>
     </LanguageProvider>

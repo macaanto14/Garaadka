@@ -15,8 +15,6 @@ router.get('/', async (req: AuditableRequest, res) => {
         c.customer_id,
         c.customer_name,
         c.phone_number,
-        c.email,
-        c.address,
         c.registration_date,
         c.status,
         c.notes,
@@ -55,8 +53,6 @@ router.get('/all', async (req: AuditableRequest, res) => {
         c.customer_id,
         c.customer_name,
         c.phone_number,
-        c.email,
-        c.address,
         c.registration_date,
         c.status,
         c.notes,
@@ -100,8 +96,6 @@ router.get('/paginated', async (req: AuditableRequest, res) => {
         c.customer_id,
         c.customer_name,
         c.phone_number,
-        c.email,
-        c.address,
         c.registration_date,
         c.status,
         c.notes,
@@ -148,8 +142,6 @@ router.get('/:id', async (req: AuditableRequest, res) => {
         c.customer_id,
         c.customer_name,
         c.phone_number,
-        c.email,
-        c.address,
         c.registration_date,
         c.status,
         c.notes,
@@ -182,7 +174,7 @@ router.get('/:id', async (req: AuditableRequest, res) => {
 // POST create new customer with audit logging
 router.post('/', async (req: AuditableRequest, res) => {
   try {
-    const { customer_name, phone_number, email, address, notes } = req.body;
+    const { customer_name, phone_number, notes } = req.body;
     
     // Validate required fields
     if (!customer_name || !phone_number) {
@@ -201,20 +193,20 @@ router.post('/', async (req: AuditableRequest, res) => {
     }
 
     // Validate phone number format (basic validation)
-    const phoneRegex = /^[0-9+\-\s()]{9,15}$/;
+    const phoneRegex = /^[0-9+\-\s()]+$/;
     if (!phoneRegex.test(phone_number)) {
       return res.status(400).json({ 
-        error: 'Please provide a valid phone number',
-        format: 'Phone number should be 9-15 digits'
+        error: 'Invalid phone number format',
+        example: '0927802065 or +251927802065'
       });
     }
 
-    // Check if phone number already exists
+    // Check if customer with this phone number already exists
     const [existingCustomer] = await db.execute(
-      'SELECT customer_id FROM customers WHERE phone_number = ? AND deleted_at IS NULL',
-      [phone_number]
+      'SELECT customer_id, customer_name FROM customers WHERE phone_number = ? AND deleted_at IS NULL', 
+      [phone_number.trim()]
     );
-
+    
     if (Array.isArray(existingCustomer) && existingCustomer.length > 0) {
       return res.status(409).json({ 
         error: 'A customer with this phone number already exists',
@@ -225,24 +217,20 @@ router.post('/', async (req: AuditableRequest, res) => {
     const customerData = addAuditFieldsForInsert({
       customer_name: customer_name.trim(),
       phone_number: phone_number.trim(),
-      email: email?.trim() || null,
-      address: address?.trim() || null,
       notes: notes?.trim() || null,
       status: 'active'
     }, req.auditUser || 'system');
 
     const query = `
       INSERT INTO customers (
-        customer_name, phone_number, email, address, notes, status,
+        customer_name, phone_number, notes, status,
         created_at, updated_at, created_by, updated_by
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
     `;
     
     const [result] = await db.execute(query, [
       customerData.customer_name,
       customerData.phone_number,
-      customerData.email,
-      customerData.address,
       customerData.notes,
       customerData.status,
       customerData.created_at,
@@ -283,7 +271,7 @@ router.post('/', async (req: AuditableRequest, res) => {
 router.put('/:id', async (req: AuditableRequest, res) => {
   try {
     const { id } = req.params;
-    const { customer_name, phone_number, email, address, notes, status } = req.body;
+    const { customer_name, phone_number, notes, status } = req.body;
     
     // Get old values for audit
     const [oldCustomer] = await db.execute(
@@ -298,15 +286,13 @@ router.put('/:id', async (req: AuditableRequest, res) => {
     const updateData = addAuditFieldsForUpdate({
       customer_name,
       phone_number,
-      email,
-      address,
       notes,
       status
     }, req.auditUser || 'system');
 
     const query = `
       UPDATE customers 
-      SET customer_name = ?, phone_number = ?, email = ?, address = ?, 
+      SET customer_name = ?, phone_number = ?, 
           notes = ?, status = ?, updated_at = ?, updated_by = ?
       WHERE customer_id = ? AND deleted_at IS NULL
     `;
@@ -314,8 +300,6 @@ router.put('/:id', async (req: AuditableRequest, res) => {
     await db.execute(query, [
       updateData.customer_name,
       updateData.phone_number,
-      updateData.email,
-      updateData.address,
       updateData.notes,
       updateData.status,
       updateData.updated_at,
@@ -404,8 +388,6 @@ router.get('/search/:query', async (req: AuditableRequest, res) => {
         c.customer_id,
         c.customer_name,
         c.phone_number,
-        c.email,
-        c.address,
         c.registration_date,
         c.status,
         c.notes,
@@ -463,8 +445,6 @@ router.get('/search', async (req: AuditableRequest, res) => {
         c.customer_id,
         c.customer_name,
         c.phone_number,
-        c.email,
-        c.address,
         c.registration_date,
         c.status,
         c.notes,
@@ -484,16 +464,15 @@ router.get('/search', async (req: AuditableRequest, res) => {
     const searchParams: any[] = [];
     const conditions: string[] = [];
 
-    // General query search (searches in name, phone, and email)
+    // General query search (searches in name and phone only)
     if (query) {
       const generalSearch = `(
         c.customer_name LIKE ? OR 
-        c.phone_number LIKE ? OR 
-        c.email LIKE ?
+        c.phone_number LIKE ?
       )`;
       conditions.push(generalSearch);
       const queryTerm = `%${query}%`;
-      searchParams.push(queryTerm, queryTerm, queryTerm);
+      searchParams.push(queryTerm, queryTerm);
     }
 
     // Specific phone number search
@@ -515,8 +494,6 @@ router.get('/search', async (req: AuditableRequest, res) => {
           c.customer_id,
           c.customer_name,
           c.phone_number,
-          c.email,
-          c.address,
           c.registration_date,
           c.status,
           c.notes,
@@ -607,8 +584,6 @@ router.get('/search/phone/:phone', async (req: AuditableRequest, res) => {
         c.customer_id,
         c.customer_name,
         c.phone_number,
-        c.email,
-        c.address,
         c.registration_date,
         c.status,
         c.notes,
@@ -652,8 +627,6 @@ router.get('/search/order/:order_id', async (req: AuditableRequest, res) => {
         c.customer_id,
         c.customer_name,
         c.phone_number,
-        c.email,
-        c.address,
         c.registration_date,
         c.status,
         c.notes,
@@ -702,8 +675,6 @@ router.get('/search/:query', async (req: AuditableRequest, res) => {
         c.customer_id,
         c.customer_name,
         c.phone_number,
-        c.email,
-        c.address,
         c.registration_date,
         c.status,
         c.notes,

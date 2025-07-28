@@ -191,7 +191,7 @@ const CustomerDetails: React.FC<CustomerDetailsProps> = ({ customer, isOpen, onC
                 <div className="bg-white p-3 rounded-lg">
                   <div className="flex items-center justify-between">
                     <span className="text-gray-600">Total Spent</span>
-                    <span className="text-2xl font-bold text-green-600">${currentCustomer.totalSpent}</span>
+                    <span className="text-2xl font-bold text-green-600">ETB {currentCustomer.totalSpent}</span>
                   </div>
                 </div>
                 <div className="bg-white p-3 rounded-lg">
@@ -239,7 +239,7 @@ const CustomerDetails: React.FC<CustomerDetailsProps> = ({ customer, isOpen, onC
                       </td>
                       <td className="py-3 px-4 text-gray-900">{order.date}</td>
                       <td className="py-3 px-4">
-                        <span className="font-medium text-green-600">${order.amount}</span>
+                        <span className="font-medium text-green-600">ETB {order.amount}</span>
                       </td>
                       <td className="py-3 px-4">
                         <span className="px-2 py-1 bg-green-100 text-green-800 rounded-full text-xs font-medium">

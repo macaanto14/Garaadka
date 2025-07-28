@@ -35,14 +35,14 @@ router.get('/', async (req: AuditableRequest, res) => {
   }
 });
 
-// Get order by ID with full details
+// GET order by ID with customer info
 router.get('/:id', async (req: AuditableRequest, res) => {
   try {
     const { id } = req.params;
     
     // Get order with customer info
     const [orderRows] = await db.execute<RowDataPacket[]>(
-      `SELECT o.*, c.customer_name, c.phone_number, c.email, c.address
+      `SELECT o.*, c.customer_name, c.phone_number
        FROM orders o
        JOIN customers c ON o.customer_id = c.customer_id
        WHERE o.order_id = ? AND o.deleted_at IS NULL`,
@@ -93,6 +93,13 @@ router.post('/', async (req: AuditableRequest, res) => {
       notes
     } = req.body;
 
+    // Validate required fields
+    if (!customer_id || !items || !Array.isArray(items) || items.length === 0) {
+      return res.status(400).json({ 
+        error: 'Missing required fields: customer_id and items are required' 
+      });
+    }
+
     // Generate unique order number
     const orderNumber = `ORD-${Date.now()}-${Math.random().toString(36).substr(2, 4).toUpperCase()}`;
 
@@ -104,11 +111,11 @@ router.post('/', async (req: AuditableRequest, res) => {
     const orderData = addAuditFieldsForInsert({
       order_number: orderNumber,
       customer_id,
-      due_date,
-      delivery_date,
+      due_date: due_date || null,
+      delivery_date: delivery_date || null,
       total_amount: totalAmount,
-      payment_method,
-      notes,
+      payment_method: payment_method || null,
+      notes: notes || null,
       status: 'pending',
       payment_status: 'unpaid'
     }, req.auditUser || 'system');
@@ -130,12 +137,12 @@ router.post('/', async (req: AuditableRequest, res) => {
       const itemData = addAuditFieldsForInsert({
         order_id: orderId,
         item_name: item.item_name,
-        description: item.description,
+        description: item.description || null,
         quantity: item.quantity,
         unit_price: item.unit_price,
-        color: item.color,
-        size: item.size,
-        special_instructions: item.special_instructions
+        color: item.color || null,
+        size: item.size || null,
+        special_instructions: item.special_instructions || null
       }, req.auditUser || 'system');
 
       await connection.execute(
@@ -191,12 +198,12 @@ router.put('/:id', async (req: AuditableRequest, res) => {
 
     const updateData = addAuditFieldsForUpdate({
       customer_id,
-      due_date,
-      delivery_date,
+      due_date: due_date || null,
+      delivery_date: delivery_date || null,
       status,
       payment_status,
-      payment_method,
-      notes
+      payment_method: payment_method || null,
+      notes: notes || null
     }, req.auditUser || 'system');
 
     const [result] = await db.execute<ResultSetHeader>(

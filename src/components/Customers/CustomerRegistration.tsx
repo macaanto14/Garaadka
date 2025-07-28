@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { X, User, Phone, Mail, MapPin, Save, AlertCircle } from 'lucide-react';
+import { X, User, Phone, Save, AlertCircle } from 'lucide-react';
 import { customersAPI } from '../../services/api';
 import { useLanguage } from '../../contexts/LanguageContext';
 
@@ -12,15 +12,12 @@ interface CustomerRegistrationProps {
 interface CustomerFormData {
   customer_name: string;
   phone_number: string;
-  email: string;
-  address: string;
   notes: string;
 }
 
 interface ValidationErrors {
   customer_name?: string;
   phone_number?: string;
-  email?: string;
 }
 
 const CustomerRegistration: React.FC<CustomerRegistrationProps> = ({
@@ -32,8 +29,6 @@ const CustomerRegistration: React.FC<CustomerRegistrationProps> = ({
   const [formData, setFormData] = useState<CustomerFormData>({
     customer_name: '',
     phone_number: '',
-    email: '',
-    address: '',
     notes: '',
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -74,17 +69,6 @@ const CustomerRegistration: React.FC<CustomerRegistrationProps> = ({
     return null;
   };
 
-  const validateEmail = (email: string): string | null => {
-    if (!email.trim()) return null; // Email is optional
-    
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(email)) {
-      return 'Please enter a valid email address (e.g., customer@email.com)';
-    }
-    
-    return null;
-  };
-
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
     setFormData(prev => ({
@@ -110,9 +94,6 @@ const CustomerRegistration: React.FC<CustomerRegistrationProps> = ({
     const phoneError = validatePhoneNumber(formData.phone_number);
     if (phoneError) errors.phone_number = phoneError;
     
-    const emailError = validateEmail(formData.email);
-    if (emailError) errors.email = emailError;
-    
     setValidationErrors(errors);
     return Object.keys(errors).length === 0;
   };
@@ -135,8 +116,6 @@ const CustomerRegistration: React.FC<CustomerRegistrationProps> = ({
       setFormData({
         customer_name: '',
         phone_number: '',
-        email: '',
-        address: '',
         notes: '',
       });
       setValidationErrors({});
@@ -232,46 +211,6 @@ const CustomerRegistration: React.FC<CustomerRegistrationProps> = ({
                 <span>{validationErrors.phone_number}</span>
               </p>
             )}
-          </div>
-
-          {/* Email */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              <Mail className="inline h-4 w-4 mr-1" />
-              {t('customers.email')} (Optional)
-            </label>
-            <input
-              type="email"
-              name="email"
-              value={formData.email}
-              onChange={handleInputChange}
-              className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
-                validationErrors.email ? 'border-red-300 bg-red-50' : 'border-gray-300'
-              }`}
-              placeholder="customer@email.com"
-            />
-            {validationErrors.email && (
-              <p className="mt-1 text-sm text-red-600 flex items-center space-x-1">
-                <AlertCircle className="h-4 w-4" />
-                <span>{validationErrors.email}</span>
-              </p>
-            )}
-          </div>
-
-          {/* Address */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              <MapPin className="inline h-4 w-4 mr-1" />
-              {t('customers.address')} (Optional)
-            </label>
-            <input
-              type="text"
-              name="address"
-              value={formData.address}
-              onChange={handleInputChange}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              placeholder="Customer address"
-            />
           </div>
 
           {/* Notes */}

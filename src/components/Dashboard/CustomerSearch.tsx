@@ -24,7 +24,23 @@ interface Order {
   created_at: string;
   items_summary: string;
   item_count: number;
+  customer_name?: string;
+  phone_number?: string;
+  customer_id?: number;
+  email?: string;
+  address?: string;
 }
+
+// Comprehensive API response type definitions
+interface CustomerSearchResponse {
+  customer?: Customer;
+  customers?: Customer[];
+  message?: string;
+  total_results?: number;
+}
+
+// Union type for all possible API responses
+type ApiResponse = CustomerSearchResponse | Order[] | Customer | null;
 
 const CustomerSearch: React.FC = () => {
   const [phoneNumber, setPhoneNumber] = useState('');
@@ -47,12 +63,27 @@ const CustomerSearch: React.FC = () => {
     try {
       console.log('Searching for customer with phone:', phoneNumber.trim());
       
-      // Search for customer by phone number
-      const customerResponse = await customersAPI.search.byPhone(phoneNumber.trim());
+      // Search for customer by phone number with proper typing
+      const customerResponse: ApiResponse = await customersAPI.search.byPhone(phoneNumber.trim());
       console.log('Customer search response:', customerResponse);
       
-      // Check if response has customer property (new format)
-      if (customerResponse && customerResponse.customer) {
+      // Type guard function to check if response has customer property
+      const hasCustomerProperty = (obj: any): obj is CustomerSearchResponse => {
+        return obj && typeof obj === 'object' && 'customer' in obj;
+      };
+
+      // Type guard function to check if response is an array of orders
+      const isOrderArray = (obj: any): obj is Order[] => {
+        return Array.isArray(obj) && obj.length > 0 && 'order_id' in obj[0];
+      };
+
+      // Type guard function to check if response is a single customer
+      const isCustomerObject = (obj: any): obj is Customer => {
+        return obj && typeof obj === 'object' && 'customer_name' in obj && 'customer_id' in obj;
+      };
+
+      // Check if response has customer property (expected format)
+      if (hasCustomerProperty(customerResponse) && customerResponse.customer) {
         const foundCustomer = customerResponse.customer;
         console.log('Found customer:', foundCustomer);
         setCustomer(foundCustomer);
@@ -60,7 +91,7 @@ const CustomerSearch: React.FC = () => {
         
         // Get customer orders
         console.log('Fetching orders for customer ID:', foundCustomer.customer_id);
-        const ordersResponse = await ordersAPI.getByCustomer(foundCustomer.customer_id.toString());
+        const ordersResponse: Order[] = await ordersAPI.getByCustomer(foundCustomer.customer_id.toString()) as Order[];
         console.log('Orders response:', ordersResponse);
         setOrders(ordersResponse || []);
         
@@ -70,16 +101,45 @@ const CustomerSearch: React.FC = () => {
           Toast.info('No orders found for this customer');
         }
       } 
-      // Fallback for array format (legacy compatibility)
-      else if (customerResponse && Array.isArray(customerResponse) && customerResponse.length > 0) {
-        const foundCustomer = customerResponse[0];
-        console.log('Found customer (legacy format):', foundCustomer);
+      // Handle case where orders are returned directly
+      else if (isOrderArray(customerResponse)) {
+        console.log('Received orders directly:', customerResponse);
+        const ordersData = customerResponse;
+        
+        // Extract customer info from the first order
+        const firstOrder = ordersData[0];
+        if (firstOrder.customer_name && firstOrder.phone_number) {
+          const extractedCustomer: Customer = {
+            customer_id: firstOrder.customer_id || 0,
+            customer_name: firstOrder.customer_name,
+            phone_number: firstOrder.phone_number,
+            email: firstOrder.email,
+            address: firstOrder.address,
+            total_orders: ordersData.length,
+            total_spent: ordersData.reduce((sum, order) => sum + parseFloat(order.total_amount.toString()), 0).toFixed(2),
+            last_order_date: ordersData[0].created_at
+          };
+          
+          setCustomer(extractedCustomer);
+          setOrders(ordersData);
+          
+          Toast.success(`Customer found: ${extractedCustomer.customer_name}`);
+          Toast.info(`Found ${ordersData.length} order(s) for this customer`);
+        } else {
+          setError('Invalid order data received');
+          Toast.error('Invalid order data received');
+        }
+      }
+      // Handle single customer object response
+      else if (isCustomerObject(customerResponse)) {
+        const foundCustomer = customerResponse;
+        console.log('Found customer (direct object):', foundCustomer);
         setCustomer(foundCustomer);
         Toast.success(`Customer found: ${foundCustomer.customer_name}`);
         
         // Get customer orders
         console.log('Fetching orders for customer ID:', foundCustomer.customer_id);
-        const ordersResponse = await ordersAPI.getByCustomer(foundCustomer.customer_id.toString());
+        const ordersResponse: Order[] = await ordersAPI.getByCustomer(foundCustomer.customer_id.toString()) as Order[];
         console.log('Orders response:', ordersResponse);
         setOrders(ordersResponse || []);
         
@@ -106,6 +166,26 @@ const CustomerSearch: React.FC = () => {
       }
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleMarkReady = async (orderId: number) => {
+    try {
+      await ordersAPI.updateStatus(orderId.toString(), 'ready');
+      
+      // Update the local state
+      setOrders(orders.map(order => 
+        order.order_id === orderId 
+          ? { ...order, status: 'ready' }
+          : order
+      ));
+      
+      Toast.success('Order marked as ready successfully');
+    } catch (err: any) {
+      console.error('Error updating order status:', err);
+      const errorMessage = 'Failed to update order status';
+      setError(errorMessage);
+      Toast.error(errorMessage);
     }
   };
 
@@ -189,116 +269,142 @@ const CustomerSearch: React.FC = () => {
           </div>
         )}
 
-        {/* Customer Info */}
+        {/* Customer Information */}
         {customer && (
-          <div className="mb-6 p-4 bg-blue-50 rounded-lg">
-            <h4 className="font-semibold text-gray-900 mb-2">Customer Information</h4>
+          <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+            <h4 className="font-semibold text-blue-900 mb-2">Customer Information</h4>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
               <div>
-                <span className="font-medium">Name:</span> {customer.customer_name}
+                <span className="font-medium text-blue-800">Name:</span>
+                <span className="ml-2 text-blue-700">{customer.customer_name}</span>
               </div>
               <div>
-                <span className="font-medium">Phone:</span> {customer.phone_number}
+                <span className="font-medium text-blue-800">Phone:</span>
+                <span className="ml-2 text-blue-700">{customer.phone_number}</span>
               </div>
               {customer.email && (
                 <div>
-                  <span className="font-medium">Email:</span> {customer.email}
+                  <span className="font-medium text-blue-800">Email:</span>
+                  <span className="ml-2 text-blue-700">{customer.email}</span>
                 </div>
               )}
               {customer.address && (
-                <div className="md:col-span-2">
-                  <span className="font-medium">Address:</span> {customer.address}
+                <div>
+                  <span className="font-medium text-blue-800">Address:</span>
+                  <span className="ml-2 text-blue-700">{customer.address}</span>
                 </div>
               )}
+              <div>
+                <span className="font-medium text-blue-800">Total Orders:</span>
+                <span className="ml-2 text-blue-700">{customer.total_orders}</span>
+              </div>
+              <div>
+                <span className="font-medium text-blue-800">Total Spent:</span>
+                <span className="ml-2 text-blue-700">ETB {customer.total_spent}</span>
+              </div>
             </div>
           </div>
         )}
 
         {/* Orders Table */}
         {orders.length > 0 && (
-          <div>
-            <h4 className="font-semibold text-gray-900 mb-4 flex items-center">
-              <Package className="h-4 w-4 mr-2" />
-              Customer Orders ({orders.length})
-            </h4>
-            <div className="overflow-x-auto">
-              <table className="w-full border-collapse">
-                <thead>
-                  <tr className="bg-gray-50">
-                    <th className="text-left p-3 border-b font-medium text-gray-700">Order #</th>
-                    <th className="text-left p-3 border-b font-medium text-gray-700">Items</th>
-                    <th className="text-left p-3 border-b font-medium text-gray-700">Status</th>
-                    <th className="text-left p-3 border-b font-medium text-gray-700">Payment</th>
-                    <th className="text-left p-3 border-b font-medium text-gray-700">Amount</th>
-                    <th className="text-left p-3 border-b font-medium text-gray-700">Due Date</th>
-                    <th className="text-left p-3 border-b font-medium text-gray-700">Actions</th>
+          <div className="overflow-x-auto">
+            <table className="min-w-full divide-y divide-gray-200">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Order
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Items
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Status
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Payment
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Amount
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Due Date
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Actions
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="bg-white divide-y divide-gray-200">
+                {orders.map((order) => (
+                  <tr key={order.order_id} className="hover:bg-gray-50">
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="text-sm font-medium text-gray-900">
+                        {order.order_number}
+                      </div>
+                      <div className="text-sm text-gray-500">
+                        {new Date(order.created_at).toLocaleDateString()}
+                      </div>
+                    </td>
+                    <td className="px-6 py-4">
+                      <div className="text-sm text-gray-900 max-w-xs truncate">
+                        {order.items_summary}
+                      </div>
+                      <div className="text-sm text-gray-500">
+                        {order.item_count} item(s)
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getStatusColor(order.status)}`}>
+                        {order.status}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getPaymentStatusColor(order.payment_status)}`}>
+                        {order.payment_status}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                      ${order.total_amount.toFixed(2)}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                      {order.due_date ? new Date(order.due_date).toLocaleDateString() : 'N/A'}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium space-x-2">
+                      {order.status === 'washing' && (
+                        <button
+                          onClick={() => handleMarkReady(order.order_id)}
+                          className="inline-flex items-center px-3 py-1 border border-transparent text-xs font-medium rounded-md text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500"
+                        >
+                          <CheckCircle className="h-3 w-3 mr-1" />
+                          Mark Ready
+                        </button>
+                      )}
+                      {order.status === 'ready' && (
+                        <button
+                          onClick={() => handleMarkDelivered(order.order_id)}
+                          className="inline-flex items-center px-3 py-1 border border-transparent text-xs font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                        >
+                          <Package className="h-3 w-3 mr-1" />
+                          Mark Delivered
+                        </button>
+                      )}
+                    </td>
                   </tr>
-                </thead>
-                <tbody>
-                  {orders.map((order) => (
-                    <tr key={order.order_id} className="hover:bg-gray-50">
-                      <td className="p-3 border-b">
-                        <div className="font-medium text-blue-600">#{order.order_number}</div>
-                        <div className="text-xs text-gray-500">
-                          {new Date(order.created_at).toLocaleDateString()}
-                        </div>
-                      </td>
-                      <td className="p-3 border-b">
-                        <div className="text-sm">{order.items_summary}</div>
-                        <div className="text-xs text-gray-500">{order.item_count} items</div>
-                      </td>
-                      <td className="p-3 border-b">
-                        <span className={`px-2 py-1 rounded-full text-xs font-medium capitalize ${getStatusColor(order.status)}`}>
-                          {order.status}
-                        </span>
-                      </td>
-                      <td className="p-3 border-b">
-                        <span className={`px-2 py-1 rounded-full text-xs font-medium capitalize ${getPaymentStatusColor(order.payment_status)}`}>
-                          {order.payment_status}
-                        </span>
-                      </td>
-                      <td className="p-3 border-b font-medium">
-                        ${order.total_amount.toFixed(2)}
-                      </td>
-                      <td className="p-3 border-b text-sm">
-                        {order.due_date ? new Date(order.due_date).toLocaleDateString() : '-'}
-                      </td>
-                      <td className="p-3 border-b">
-                        {order.status === 'ready' && (
-                          <button
-                            onClick={() => handleMarkDelivered(order.order_id)}
-                            className="flex items-center px-3 py-1 bg-green-600 text-white text-xs rounded-lg hover:bg-green-700 transition-colors"
-                          >
-                            <CheckCircle className="h-3 w-3 mr-1" />
-                            Mark Delivered
-                          </button>
-                        )}
-                        {order.status === 'delivered' && (
-                          <span className="flex items-center text-green-600 text-xs">
-                            <CheckCircle className="h-3 w-3 mr-1" />
-                            Delivered
-                          </span>
-                        )}
-                        {!['ready', 'delivered'].includes(order.status) && (
-                          <span className="flex items-center text-gray-500 text-xs">
-                            <Clock className="h-3 w-3 mr-1" />
-                            In Progress
-                          </span>
-                        )}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+                ))}
+              </tbody>
+            </table>
           </div>
         )}
 
         {/* No Orders Message */}
         {customer && orders.length === 0 && !loading && (
-          <div className="text-center py-8 text-gray-500">
-            <Package className="h-12 w-12 mx-auto mb-4 text-gray-300" />
-            <p>No orders found for this customer</p>
+          <div className="text-center py-8">
+            <Package className="mx-auto h-12 w-12 text-gray-400" />
+            <h3 className="mt-2 text-sm font-medium text-gray-900">No orders found</h3>
+            <p className="mt-1 text-sm text-gray-500">
+              This customer doesn't have any orders yet.
+            </p>
           </div>
         )}
       </div>

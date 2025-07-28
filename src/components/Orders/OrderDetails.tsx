@@ -187,7 +187,7 @@ const OrderDetails: React.FC<OrderDetailsProps> = ({ order, isOpen, onClose, onU
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   />
                 ) : (
-                  <p className="text-gray-900 font-medium">${currentOrder.unitprice}</p>
+                  <p className="text-gray-900 font-medium">ETB {currentOrder.unitprice}</p>
                 )}
               </div>
             </div>
@@ -273,7 +273,7 @@ const OrderDetails: React.FC<OrderDetailsProps> = ({ order, isOpen, onClose, onU
               <div className="space-y-3">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Total Amount</label>
-                  <p className="text-2xl font-bold text-green-600">${currentOrder.totalAmount}</p>
+                  <p className="text-2xl font-bold text-green-600">ETB {currentOrder.totalAmount}</p>
                   <p className="text-sm text-gray-600">{currentOrder.amntword}</p>
                 </div>
                 <div>

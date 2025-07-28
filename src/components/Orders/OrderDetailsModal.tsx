@@ -1,7 +1,8 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { X, User, Phone, Calendar, DollarSign, Package, Palette, Ruler } from 'lucide-react';
 import { LaundryOrder } from '../../types';
 import { useLanguage } from '../../contexts/LanguageContext';
+import ReceiptGenerator from './ReceiptGenerator';
 
 interface OrderDetailsModalProps {
   isOpen: boolean;
@@ -11,6 +12,7 @@ interface OrderDetailsModalProps {
 
 const OrderDetailsModal: React.FC<OrderDetailsModalProps> = ({ isOpen, onClose, order }) => {
   const { t } = useLanguage();
+  const [showReceipt, setShowReceipt] = useState(false);
 
   if (!isOpen) return null;
 
@@ -34,6 +36,57 @@ const OrderDetailsModal: React.FC<OrderDetailsModalProps> = ({ isOpen, onClose, 
     return colors[status] || 'bg-gray-100 text-gray-800';
   };
 
+  const handlePrintReceipt = () => {
+    setShowReceipt(true);
+  };
+
+  const handleCloseReceipt = () => {
+    setShowReceipt(false);
+  };
+
+  // Convert order to receipt data format
+  const receiptData = {
+    businessName: 'Garaadka Laundry Service',
+    businessAddress: '123 Main Street, Mogadishu, Somalia',
+    businessPhone: '+252 61 234 5678',
+    orderNumber: order.itemNum.toString(),
+    orderId: order.orderId || `${order.itemNum}ORD`,
+    serialNumber: order.serialNumber || undefined,
+    orderDate: new Date().toISOString(),
+    dueDate: order.duedate,
+    deliveryDate: order.deliverdate,
+    status: order.status || 'received',
+    customerName: order.name,
+    customerPhone: order.mobnum.toString(),
+    items: [{
+      name: order.descr,
+      description: order.descr,
+      quantity: order.quan,
+      unitPrice: order.unitprice,
+      color: order.col,
+      size: order.siz,
+      totalPrice: order.totalAmount
+    }],
+    totalAmount: order.totalAmount,
+    paidAmount: order.payCheck === 'paid' ? order.totalAmount : order.payCheck === 'partial' ? order.totalAmount * 0.5 : 0,
+    remainingAmount: order.payCheck === 'paid' ? 0 : order.payCheck === 'partial' ? order.totalAmount * 0.5 : order.totalAmount,
+    paymentStatus: order.payCheck,
+    paymentMethod: 'cash',
+    discount: 0,
+    notes: `Order #${order.itemNum} - ${order.descr}`,
+    generatedAt: new Date().toISOString()
+  };
+
+  // Show receipt generator if requested
+  if (showReceipt) {
+    return (
+      <ReceiptGenerator
+        receiptData={receiptData}
+        onClose={handleCloseReceipt}
+      />
+    );
+  }
+
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
       <div className="bg-white rounded-xl shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
@@ -48,6 +101,29 @@ const OrderDetailsModal: React.FC<OrderDetailsModalProps> = ({ isOpen, onClose, 
         </div>
 
         <div className="p-6 space-y-6">
+          {/* Order ID and Serial Number Display */}
+          {(order.orderId || order.serialNumber) && (
+            <div className="bg-blue-50 p-4 rounded-lg">
+              <h3 className="text-lg font-semibold text-gray-900 mb-3">Order Identification</h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {order.orderId && (
+                  <div className="flex items-center space-x-2">
+                    <Package className="h-4 w-4 text-blue-500" />
+                    <span className="text-gray-500">Order ID:</span>
+                    <span className="text-gray-700 font-mono font-bold">{order.orderId}</span>
+                  </div>
+                )}
+                {order.serialNumber && (
+                  <div className="flex items-center space-x-2">
+                    <Package className="h-4 w-4 text-green-500" />
+                    <span className="text-gray-500">Package Serial:</span>
+                    <span className="text-green-700 font-mono font-bold">{order.serialNumber}</span>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
           {/* Customer Information */}
           <div className="bg-gray-50 p-4 rounded-lg">
             <h3 className="text-lg font-semibold text-gray-900 mb-3">Customer Information</h3>
@@ -117,11 +193,11 @@ const OrderDetailsModal: React.FC<OrderDetailsModalProps> = ({ isOpen, onClose, 
               <div className="flex items-center space-x-2">
                 <DollarSign className="h-4 w-4 text-gray-500" />
                 <span className="text-gray-500">Unit Price:</span>
-                <span className="text-gray-700 font-medium">${order.unitprice}</span>
+                <span className="text-gray-700 font-medium">ETB {order.unitprice}</span>
               </div>
               <div className="flex items-center space-x-2">
                 <span className="text-gray-500">Total Amount:</span>
-                <span className="text-2xl font-bold text-green-600">${order.totalAmount}</span>
+                <span className="text-2xl font-bold text-green-600">ETB {order.totalAmount}</span>
               </div>
               <div className="flex items-center space-x-2">
                 <span className="text-gray-500">Payment Status:</span>
@@ -143,7 +219,10 @@ const OrderDetailsModal: React.FC<OrderDetailsModalProps> = ({ isOpen, onClose, 
             <button className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors duration-200">
               Edit Order
             </button>
-            <button className="px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors duration-200">
+            <button 
+              onClick={handlePrintReceipt}
+              className="px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors duration-200"
+            >
               Print Receipt
             </button>
           </div>

@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Search, Filter, DollarSign, CreditCard, Calendar, TrendingUp, Download, Plus } from 'lucide-react';
 import { useLanguage } from '../../contexts/LanguageContext';
+import { formatCurrency } from '../../utils/currency';
 
 interface Payment {
   id: number;
@@ -92,7 +93,7 @@ const PaymentManagement: React.FC = () => {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-gray-600 text-sm">Total Revenue</p>
-              <p className="text-2xl font-bold text-green-600">${totalRevenue}</p>
+              <p className="text-2xl font-bold text-green-600">ETB {totalRevenue}</p>
             </div>
             <TrendingUp className="h-8 w-8 text-green-600" />
           </div>
@@ -101,7 +102,7 @@ const PaymentManagement: React.FC = () => {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-gray-600 text-sm">Pending Payments</p>
-              <p className="text-2xl font-bold text-yellow-600">${pendingAmount}</p>
+              <p className="text-2xl font-bold text-yellow-600">ETB {pendingAmount}</p>
             </div>
             <Calendar className="h-8 w-8 text-yellow-600" />
           </div>
@@ -211,7 +212,7 @@ const PaymentManagement: React.FC = () => {
                     <span className="text-gray-900">{payment.customerName}</span>
                   </td>
                   <td className="py-4 px-4">
-                    <span className="font-semibold text-gray-900">${payment.amount}</span>
+                    <span className="font-semibold text-gray-900">ETB {payment.amount}</span>
                   </td>
                   <td className="py-4 px-4">
                     <div className="flex items-center space-x-2">

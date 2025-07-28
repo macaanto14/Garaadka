@@ -26,6 +26,9 @@ export interface LaundryOrder {
   col?: string;
   siz?: string;
   status?: 'received' | 'washing' | 'drying' | 'ready' | 'delivered';
+  // New serial number fields
+  serialNumber?: string;    // Package serial number for customer delivery
+  orderId?: string;         // Auto-generated order ID (3 digits + string)
 }
 
 export interface AuditLog {

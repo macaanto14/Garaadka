@@ -117,7 +117,7 @@ const OrderList: React.FC = () => {
       descr: orderData.items.map((item: any) => item.description).join(', '),
       quan: orderData.items.reduce((sum: number, item: any) => sum + item.quantity, 0),
       unitprice: orderData.totalAmount / orderData.items.reduce((sum: number, item: any) => sum + item.quantity, 0),
-      amntword: `${orderData.totalAmount} dollars`,
+      amntword: `${orderData.totalAmount} Ethiopian Birr`,
       duedate: orderData.dueDate,
       deliverdate: orderData.deliveryDate,
       totalAmount: orderData.totalAmount,
@@ -276,7 +276,7 @@ const OrderList: React.FC = () => {
                     <span className="font-medium text-gray-900">{order.quan}</span>
                   </td>
                   <td className="py-4 px-4">
-                    <span className="font-bold text-green-600">${order.totalAmount}</span>
+                    <span className="font-bold text-green-600">ETB {order.totalAmount}</span>
                   </td>
                   <td className="py-4 px-4">
                     <span className="text-gray-900">{order.duedate}</span>
