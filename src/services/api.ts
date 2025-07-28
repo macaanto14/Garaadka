@@ -195,22 +195,30 @@ export const customersAPI = {
       const phonePattern = /^[0-9+\-\s()]{7,15}$/;
       const digitCount = (trimmedInput.match(/\d/g) || []).length;
       
-      // Order ID pattern - more specific patterns
+      // Order ID pattern - more specific patterns (excluding pure long numbers that could be phone numbers)
       const orderIdPatterns = [
         /^ORD-\d{4}-\d{3,}$/i,           // ORD-2024-001 format
         /^#\d{3,}$/,                     // #123 format (at least 3 digits)
-        /^\d{3,}$/                       // Pure numbers (at least 3 digits)
       ];
       
-      // Check if it's a phone number (at least 7 digits, mostly numeric)
-      if (phonePattern.test(trimmedInput) && digitCount >= 7) {
+      // Check if it's a phone number FIRST (at least 7 digits, mostly numeric, and reasonable length for phone)
+      if (phonePattern.test(trimmedInput) && digitCount >= 7 && digitCount <= 15) {
         return customersAPI.search.byPhone(trimmedInput);
       }
       
-      // Check if it matches any order ID pattern
+      // Check if it matches specific order ID patterns (but not pure numbers that could be phone numbers)
       const isOrderId = orderIdPatterns.some(pattern => pattern.test(trimmedInput));
       if (isOrderId) {
         return customersAPI.search.byOrderId(trimmedInput);
+      }
+      
+      // For pure numbers, if it's short (3-6 digits), treat as order ID, otherwise treat as phone
+      if (/^\d+$/.test(trimmedInput)) {
+        if (trimmedInput.length >= 3 && trimmedInput.length <= 6) {
+          return customersAPI.search.byOrderId(trimmedInput);
+        } else if (trimmedInput.length >= 7) {
+          return customersAPI.search.byPhone(trimmedInput);
+        }
       }
       
       // Default to general search for names and other text

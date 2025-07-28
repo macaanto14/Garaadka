@@ -593,10 +593,14 @@ router.get('/search', async (req: AuditableRequest, res) => {
   }
 });
 
-// Quick search by phone number (exact match)
+// Quick search by phone number (exact match with flexible formatting)
 router.get('/search/phone/:phone', async (req: AuditableRequest, res) => {
   try {
     const { phone } = req.params;
+    
+    // Normalize phone number by removing common prefixes and formatting
+    const normalizedPhone = phone.replace(/^0+/, ''); // Remove leading zeros
+    const phoneWithZero = '0' + normalizedPhone; // Add leading zero
     
     const query = `
       SELECT 
@@ -689,7 +693,7 @@ router.get('/search/order/:order_id', async (req: AuditableRequest, res) => {
   }
 });
 
-// GET search customers with audit information (keep existing for backward compatibility)
+// GET search customers with audit information (updated to support both query params and path params)
 router.get('/search/:query', async (req: AuditableRequest, res) => {
   try {
     const { query } = req.params;
@@ -716,6 +720,7 @@ router.get('/search/:query', async (req: AuditableRequest, res) => {
         AND c.deleted_at IS NULL
       GROUP BY c.customer_id
       ORDER BY c.customer_name ASC
+      LIMIT 20
     `;
     
     const searchTerm = `%${query}%`;

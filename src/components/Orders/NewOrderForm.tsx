@@ -1,7 +1,9 @@
+// Force reload - timestamp: 1753718500000
 import React, { useState, useEffect } from 'react';
-import { X, Plus, Trash2, Save, Search } from 'lucide-react';
+import { X, Plus, Trash2, Save, Search, UserPlus } from 'lucide-react';
 import { useLanguage } from '../../contexts/LanguageContext';
 import { ordersAPI, customersAPI } from '../../services/api';
+import { Toast } from '../../utils/Toast';
 
 interface Customer {
   customer_id: number;
@@ -34,6 +36,8 @@ const NewOrderForm: React.FC<NewOrderFormProps> = ({ isOpen, onClose, onSuccess 
   const [customerSearch, setCustomerSearch] = useState('');
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [showCustomerDropdown, setShowCustomerDropdown] = useState(false);
+  const [showAddCustomerSuggestion, setShowAddCustomerSuggestion] = useState(false);
+  const [isSearching, setIsSearching] = useState(false);
   
   const [dueDate, setDueDate] = useState('');
   const [deliveryDate, setDeliveryDate] = useState('');
@@ -75,29 +79,82 @@ const NewOrderForm: React.FC<NewOrderFormProps> = ({ isOpen, onClose, onSuccess 
     }
   }, [isOpen]);
 
-  // Search customers
-  const handleCustomerSearch = async (term: string) => {
-    setCustomerSearch(term);
-    if (term.trim()) {
-      try {
-        const data = await customersAPI.search(term);
-        setCustomers(data);
-        setShowCustomerDropdown(true);
-      } catch (err) {
-        console.error('Customer search failed:', err);
-      }
-    } else {
-      const data = await customersAPI.getAll();
-      setCustomers(data);
-      setShowCustomerDropdown(false);
+  // Search customers by phone number
+  const handleCustomerSearch = async () => {
+    if (!customerSearch.trim()) {
+      Toast.info('Enter Phone Number', 'Please enter a phone number to search for customers.');
+      return;
     }
+
+    setIsSearching(true);
+    setShowAddCustomerSuggestion(false);
+    setShowCustomerDropdown(false);
+    
+    try {
+      const trimmedTerm = customerSearch.trim();
+      
+      // Only search by phone number for new orders
+      const response = await customersAPI.search.byPhone(trimmedTerm);
+      
+      // Handle the response format - check if it's an array or object with customer property
+      let customerData;
+      if (Array.isArray(response)) {
+        customerData = response;
+      } else if (response.customer) {
+        // If response has a customer property, wrap it in an array
+        customerData = [response.customer];
+      } else if (response.customers) {
+        // If response has a customers property
+        customerData = response.customers;
+      } else {
+        // Fallback - assume response is a single customer object
+        customerData = [response];
+      }
+      
+      setCustomers(customerData);
+      
+      if (customerData.length === 0) {
+        setShowAddCustomerSuggestion(true);
+        setShowCustomerDropdown(false);
+        Toast.info('No customers found', `No customers found with phone number "${trimmedTerm}"`);
+      } else {
+        setShowCustomerDropdown(true);
+        setShowAddCustomerSuggestion(false);
+        Toast.success('Customers Found', `Found ${customerData.length} customer(s) with this phone number`);
+      }
+    } catch (err) {
+      console.error('Customer search failed:', err);
+      Toast.error('Search Failed', 'Failed to search for customers by phone number. Please try again.');
+      setCustomers([]);
+      setShowCustomerDropdown(false);
+      setShowAddCustomerSuggestion(false);
+    } finally {
+      setIsSearching(false);
+    }
+  };
+
+  // Handle adding new customer
+  const handleAddNewCustomer = () => {
+    const phoneNumber = customerSearch.trim();
+    if (!phoneNumber) {
+      Toast.error('Invalid Phone Number', 'Please enter a valid phone number.');
+      return;
+    }
+    
+    // Here you would typically open a new customer form or navigate to add customer page
+    // For now, we'll show a toast with instructions
+    Toast.info('Add New Customer', `To add a customer with phone number "${phoneNumber}", please go to the Customers section and create a new customer record.`);
+    
+    // You could also implement a quick add customer modal here
+    // or call a function passed as prop to open the customer form
   };
 
   // Select customer
   const selectCustomer = (customer: Customer) => {
     setSelectedCustomer(customer);
-    setCustomerSearch(customer.customer_name);
+    setCustomerSearch(customer.phone_number); // Show phone number instead of name
     setShowCustomerDropdown(false);
+    setShowAddCustomerSuggestion(false);
   };
 
   // Add new item
@@ -213,18 +270,38 @@ const NewOrderForm: React.FC<NewOrderFormProps> = ({ isOpen, onClose, onSuccess 
           {/* Customer Selection */}
           <div className="relative">
             <label className="block text-sm font-medium text-gray-700 mb-2">
-              Customer *
+              Customer Phone Number *
             </label>
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
-              <input
-                type="text"
-                value={customerSearch}
-                onChange={(e) => handleCustomerSearch(e.target.value)}
-                onFocus={() => setShowCustomerDropdown(true)}
-                placeholder="Search for customer..."
-                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              />
+            <div className="flex space-x-2">
+              <div className="relative flex-1">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+                <input
+                  type="text"
+                  value={customerSearch}
+                  onChange={(e) => setCustomerSearch(e.target.value)}
+                  onKeyPress={(e) => e.key === 'Enter' && handleCustomerSearch()}
+                  placeholder="Enter phone number..."
+                  className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                />
+              </div>
+              <button
+                type="button"
+                onClick={handleCustomerSearch}
+                disabled={isSearching || !customerSearch.trim()}
+                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors flex items-center space-x-2"
+              >
+                {isSearching ? (
+                  <>
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                    <span>Searching...</span>
+                  </>
+                ) : (
+                  <>
+                    <Search className="h-4 w-4" />
+                    <span>Search</span>
+                  </>
+                )}
+              </button>
             </div>
             
             {showCustomerDropdown && customers.length > 0 && (
@@ -242,11 +319,34 @@ const NewOrderForm: React.FC<NewOrderFormProps> = ({ isOpen, onClose, onSuccess 
                 ))}
               </div>
             )}
+
+            {showAddCustomerSuggestion && customerSearch.trim() && (
+              <div className="mt-2 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-medium text-yellow-800">
+                      Customer not found
+                    </p>
+                    <p className="text-sm text-yellow-700">
+                      No customer found with phone number "{customerSearch.trim()}"
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleAddNewCustomer}
+                    className="ml-4 px-3 py-2 bg-yellow-600 text-white rounded-lg hover:bg-yellow-700 transition-colors flex items-center space-x-2 text-sm"
+                  >
+                    <UserPlus className="h-4 w-4" />
+                    <span>Add Customer</span>
+                  </button>
+                </div>
+              </div>
+            )}
             
             {selectedCustomer && (
-              <div className="mt-2 p-3 bg-blue-50 border border-blue-200 rounded-lg">
-                <div className="font-medium text-blue-900">{selectedCustomer.customer_name}</div>
-                <div className="text-sm text-blue-700">{selectedCustomer.phone_number}</div>
+              <div className="mt-2 p-3 bg-green-50 border border-green-200 rounded-lg">
+                <div className="font-medium text-green-900">{selectedCustomer.customer_name}</div>
+                <div className="text-sm text-green-700">{selectedCustomer.phone_number}</div>
               </div>
             )}
           </div>
