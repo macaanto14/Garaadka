@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { Shirt, Eye, EyeOff, AlertCircle } from 'lucide-react';
+import { useLanguage } from '../../contexts/LanguageContext';
 
 const LoginForm: React.FC = () => {
   const [username, setUsername] = useState('');
@@ -9,6 +10,7 @@ const LoginForm: React.FC = () => {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const { login } = useAuth();
+  const { t } = useLanguage();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -18,10 +20,10 @@ const LoginForm: React.FC = () => {
     try {
       const success = await login(username, password);
       if (!success) {
-        setError('Invalid username or password');
+        setError(t('login.error.invalid'));
       }
     } catch (err) {
-      setError('An error occurred during login');
+      setError(t('login.error.general'));
     } finally {
       setLoading(false);
     }
@@ -35,7 +37,8 @@ const LoginForm: React.FC = () => {
             <Shirt className="h-8 w-8 text-white" />
           </div>
           <h2 className="text-3xl font-bold text-gray-900">Welcome Back</h2>
-          <p className="mt-2 text-gray-600">Sign in to Garaad wil waal Laundry Management</p>
+          <h2 className="text-3xl font-bold text-gray-900">{t('login.title')}</h2>
+          <p className="mt-2 text-gray-600">{t('login.subtitle')}</p>
         </div>
 
         <div className="bg-white p-8 rounded-xl shadow-lg border border-gray-200">
@@ -49,7 +52,7 @@ const LoginForm: React.FC = () => {
 
             <div>
               <label htmlFor="username" className="block text-sm font-medium text-gray-700 mb-2">
-                Username
+                {t('login.username')}
               </label>
               <input
                 id="username"
@@ -57,14 +60,14 @@ const LoginForm: React.FC = () => {
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors duration-200"
-                placeholder="Enter your username"
+                placeholder={t('login.username')}
                 required
               />
             </div>
 
             <div>
               <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-2">
-                Password
+                {t('login.password')}
               </label>
               <div className="relative">
                 <input
@@ -73,7 +76,7 @@ const LoginForm: React.FC = () => {
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   className="w-full px-3 py-2 pr-10 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors duration-200"
-                  placeholder="Enter your password"
+                  placeholder={t('login.password')}
                   required
                 />
                 <button
@@ -89,10 +92,10 @@ const LoginForm: React.FC = () => {
             <div className="flex items-center justify-between">
               <label className="flex items-center">
                 <input type="checkbox" className="rounded border-gray-300 text-blue-600 focus:ring-blue-500" />
-                <span className="ml-2 text-sm text-gray-600">Remember me</span>
+                <span className="ml-2 text-sm text-gray-600">{t('login.remember')}</span>
               </label>
               <a href="#" className="text-sm text-blue-600 hover:text-blue-500">
-                Forgot password?
+                {t('login.forgot')}
               </a>
             </div>
 
@@ -101,13 +104,13 @@ const LoginForm: React.FC = () => {
               disabled={loading}
               className="w-full bg-blue-600 text-white py-2 px-4 rounded-lg hover:bg-blue-700 focus:ring-2 focus:ring-blue-500 transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              {loading ? 'Signing in...' : 'Sign in'}
+              {loading ? t('login.signing') : t('login.signin')}
             </button>
           </form>
 
           <div className="mt-6 text-center">
             <p className="text-sm text-gray-600">
-              Demo credentials: <span className="font-medium">admin / admin123</span>
+              {t('login.demo')}: <span className="font-medium">admin / admin123</span>
             </p>
           </div>
         </div>

@@ -10,6 +10,7 @@ import {
   Shirt
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
+import { useLanguage } from '../../contexts/LanguageContext';
 
 interface SidebarProps {
   activeTab: string;
@@ -18,14 +19,15 @@ interface SidebarProps {
 
 const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab }) => {
   const { logout, user } = useAuth();
+  const { t } = useLanguage();
 
   const menuItems = [
-    { id: 'dashboard', label: 'Dashboard', icon: Home },
-    { id: 'orders', label: 'Orders', icon: ShoppingBag },
-    { id: 'customers', label: 'Customers', icon: Users },
-    { id: 'payments', label: 'Payments', icon: CreditCard },
-    { id: 'audit', label: 'Audit Logs', icon: FileText },
-    { id: 'settings', label: 'Settings', icon: Settings },
+    { id: 'dashboard', label: t('nav.dashboard'), icon: Home },
+    { id: 'orders', label: t('nav.orders'), icon: ShoppingBag },
+    { id: 'customers', label: t('nav.customers'), icon: Users },
+    { id: 'payments', label: t('nav.payments'), icon: CreditCard },
+    { id: 'audit', label: t('nav.audit'), icon: FileText },
+    { id: 'settings', label: t('nav.settings'), icon: Settings },
   ];
 
   return (
@@ -76,7 +78,7 @@ const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab }) => {
           className="w-full flex items-center space-x-3 px-3 py-2 text-left text-blue-200 hover:text-white hover:bg-blue-700 rounded-lg transition-colors duration-200"
         >
           <LogOut className="h-4 w-4" />
-          <span>Logout</span>
+          <span>{t('nav.logout')}</span>
         </button>
       </div>
     </div>

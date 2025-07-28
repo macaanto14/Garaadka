@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Search, Plus, Phone, Mail, MapPin } from 'lucide-react';
+import { useLanguage } from '../../contexts/LanguageContext';
 
 interface Customer {
   id: number;
@@ -13,6 +14,7 @@ interface Customer {
 }
 
 const CustomerList: React.FC = () => {
+  const { t } = useLanguage();
   const [searchTerm, setSearchTerm] = useState('');
 
   // Mock data
@@ -61,7 +63,7 @@ const CustomerList: React.FC = () => {
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
           <input
             type="text"
-            placeholder="Search customers..."
+            placeholder={t('customers.search')}
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             className="pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent w-full sm:w-80"
@@ -70,7 +72,7 @@ const CustomerList: React.FC = () => {
         
         <button className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors duration-200 flex items-center space-x-2">
           <Plus className="h-4 w-4" />
-          <span>Add Customer</span>
+          <span>{t('customers.add')}</span>
         </button>
       </div>
 
@@ -85,7 +87,7 @@ const CustomerList: React.FC = () => {
                 </div>
                 <div>
                   <h3 className="font-semibold text-gray-900">{customer.name}</h3>
-                  <p className="text-gray-600 text-sm">Customer #{customer.id}</p>
+                  <p className="text-gray-600 text-sm">{t('customers.customer')} #{customer.id}</p>
                 </div>
               </div>
             </div>
@@ -115,14 +117,14 @@ const CustomerList: React.FC = () => {
               <div className="grid grid-cols-3 gap-4 text-center">
                 <div>
                   <p className="text-2xl font-bold text-blue-600">{customer.totalOrders}</p>
-                  <p className="text-gray-600 text-xs">Orders</p>
+                  <p className="text-gray-600 text-xs">{t('customers.orders')}</p>
                 </div>
                 <div>
                   <p className="text-2xl font-bold text-green-600">${customer.totalSpent}</p>
-                  <p className="text-gray-600 text-xs">Spent</p>
+                  <p className="text-gray-600 text-xs">{t('customers.spent')}</p>
                 </div>
                 <div>
-                  <p className="text-xs text-gray-900 font-medium">Last Order</p>
+                  <p className="text-xs text-gray-900 font-medium">{t('customers.lastOrder')}</p>
                   <p className="text-gray-600 text-xs">{new Date(customer.lastOrder).toLocaleDateString()}</p>
                 </div>
               </div>
@@ -130,7 +132,7 @@ const CustomerList: React.FC = () => {
 
             <div className="mt-4 pt-4 border-t border-gray-200">
               <button className="w-full bg-gray-100 hover:bg-gray-200 text-gray-700 py-2 px-4 rounded-lg transition-colors duration-200 text-sm font-medium">
-                View Details
+                {t('customers.viewDetails')}
               </button>
             </div>
           </div>

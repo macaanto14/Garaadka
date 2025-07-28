@@ -1,32 +1,35 @@
 import React from 'react';
 import { ShoppingBag, Users, DollarSign, TrendingUp, Clock, CheckCircle } from 'lucide-react';
 import StatCard from './StatCard';
+import { useLanguage } from '../../contexts/LanguageContext';
 
 const Dashboard: React.FC = () => {
+  const { t } = useLanguage();
+
   const stats = [
     {
-      title: 'Total Orders',
+      title: t('dashboard.stats.totalOrders'),
       value: '1,247',
       icon: ShoppingBag,
       trend: { value: 12, isPositive: true },
       color: 'blue' as const
     },
     {
-      title: 'Active Customers',
+      title: t('dashboard.stats.activeCustomers'),
       value: '842',
       icon: Users,
       trend: { value: 8, isPositive: true },
       color: 'green' as const
     },
     {
-      title: 'Monthly Revenue',
+      title: t('dashboard.stats.monthlyRevenue'),
       value: '$24,560',
       icon: DollarSign,
       trend: { value: 15, isPositive: true },
       color: 'orange' as const
     },
     {
-      title: 'Pending Orders',
+      title: t('dashboard.stats.pendingOrders'),
       value: '38',
       icon: Clock,
       trend: { value: 5, isPositive: false },
@@ -53,6 +56,17 @@ const Dashboard: React.FC = () => {
     return colors[status] || 'bg-gray-100 text-gray-800';
   };
 
+  const getStatusText = (status: string) => {
+    const statusMap: Record<string, string> = {
+      received: t('status.received'),
+      washing: t('status.washing'),
+      drying: t('status.drying'),
+      ready: t('status.ready'),
+      delivered: t('status.delivered')
+    };
+    return statusMap[status] || status;
+  };
+
   return (
     <div className="space-y-6">
       {/* Stats Grid */}
@@ -66,8 +80,8 @@ const Dashboard: React.FC = () => {
         {/* Recent Orders */}
         <div className="bg-white rounded-xl shadow-sm border border-gray-200">
           <div className="p-6 border-b border-gray-200">
-            <h3 className="text-lg font-semibold text-gray-900">Recent Orders</h3>
-            <p className="text-gray-600 text-sm">Latest customer orders and their status</p>
+            <h3 className="text-lg font-semibold text-gray-900">{t('dashboard.recentOrders')}</h3>
+            <p className="text-gray-600 text-sm">{t('dashboard.recentOrders.subtitle')}</p>
           </div>
           <div className="p-6">
             <div className="space-y-4">
@@ -86,7 +100,7 @@ const Dashboard: React.FC = () => {
                   </div>
                   <div className="flex items-center space-x-3">
                     <span className={`px-2 py-1 rounded-full text-xs font-medium capitalize ${getStatusColor(order.status)}`}>
-                      {order.status}
+                      {getStatusText(order.status)}
                     </span>
                     <span className="font-semibold text-gray-900">{order.amount}</span>
                   </div>
@@ -99,30 +113,30 @@ const Dashboard: React.FC = () => {
         {/* Quick Actions */}
         <div className="bg-white rounded-xl shadow-sm border border-gray-200">
           <div className="p-6 border-b border-gray-200">
-            <h3 className="text-lg font-semibold text-gray-900">Quick Actions</h3>
-            <p className="text-gray-600 text-sm">Common tasks and shortcuts</p>
+            <h3 className="text-lg font-semibold text-gray-900">{t('dashboard.quickActions')}</h3>
+            <p className="text-gray-600 text-sm">{t('dashboard.quickActions.subtitle')}</p>
           </div>
           <div className="p-6">
             <div className="grid grid-cols-2 gap-4">
               <button className="p-4 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors duration-200 text-left">
                 <ShoppingBag className="h-8 w-8 text-blue-600 mb-2" />
-                <p className="font-medium text-gray-900">New Order</p>
-                <p className="text-gray-600 text-sm">Create new laundry order</p>
+                <p className="font-medium text-gray-900">{t('dashboard.actions.newOrder')}</p>
+                <p className="text-gray-600 text-sm">{t('dashboard.actions.newOrder.desc')}</p>
               </button>
               <button className="p-4 bg-green-50 hover:bg-green-100 rounded-lg transition-colors duration-200 text-left">
                 <Users className="h-8 w-8 text-green-600 mb-2" />
-                <p className="font-medium text-gray-900">Add Customer</p>
-                <p className="text-gray-600 text-sm">Register new customer</p>
+                <p className="font-medium text-gray-900">{t('dashboard.actions.addCustomer')}</p>
+                <p className="text-gray-600 text-sm">{t('dashboard.actions.addCustomer.desc')}</p>
               </button>
               <button className="p-4 bg-orange-50 hover:bg-orange-100 rounded-lg transition-colors duration-200 text-left">
                 <DollarSign className="h-8 w-8 text-orange-600 mb-2" />
-                <p className="font-medium text-gray-900">Process Payment</p>
-                <p className="text-gray-600 text-sm">Record payment received</p>
+                <p className="font-medium text-gray-900">{t('dashboard.actions.processPayment')}</p>
+                <p className="text-gray-600 text-sm">{t('dashboard.actions.processPayment.desc')}</p>
               </button>
               <button className="p-4 bg-purple-50 hover:bg-purple-100 rounded-lg transition-colors duration-200 text-left">
                 <TrendingUp className="h-8 w-8 text-purple-600 mb-2" />
-                <p className="font-medium text-gray-900">View Reports</p>
-                <p className="text-gray-600 text-sm">Business analytics</p>
+                <p className="font-medium text-gray-900">{t('dashboard.actions.viewReports')}</p>
+                <p className="text-gray-600 text-sm">{t('dashboard.actions.viewReports.desc')}</p>
               </button>
             </div>
           </div>

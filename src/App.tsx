@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
+import { LanguageProvider, useLanguage } from './contexts/LanguageContext';
 import LoginForm from './components/Auth/LoginForm';
 import Sidebar from './components/Layout/Sidebar';
 import Header from './components/Layout/Header';
@@ -9,6 +10,7 @@ import CustomerList from './components/Customers/CustomerList';
 
 const AppContent: React.FC = () => {
   const { isAuthenticated } = useAuth();
+  const { t } = useLanguage();
   const [activeTab, setActiveTab] = useState('dashboard');
 
   if (!isAuthenticated) {
@@ -26,22 +28,22 @@ const AppContent: React.FC = () => {
       case 'payments':
         return (
           <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-8 text-center">
-            <h3 className="text-xl font-semibold text-gray-900 mb-2">Payment Management</h3>
-            <p className="text-gray-600">Payment tracking and invoice management coming soon...</p>
+            <h3 className="text-xl font-semibold text-gray-900 mb-2">{t('nav.payments')}</h3>
+            <p className="text-gray-600">{t('comingSoon.payments')}</p>
           </div>
         );
       case 'audit':
         return (
           <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-8 text-center">
-            <h3 className="text-xl font-semibold text-gray-900 mb-2">Audit Logs</h3>
-            <p className="text-gray-600">Staff activity tracking and audit logs coming soon...</p>
+            <h3 className="text-xl font-semibold text-gray-900 mb-2">{t('nav.audit')}</h3>
+            <p className="text-gray-600">{t('comingSoon.audit')}</p>
           </div>
         );
       case 'settings':
         return (
           <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-8 text-center">
-            <h3 className="text-xl font-semibold text-gray-900 mb-2">Settings</h3>
-            <p className="text-gray-600">System configuration and user management coming soon...</p>
+            <h3 className="text-xl font-semibold text-gray-900 mb-2">{t('nav.settings')}</h3>
+            <p className="text-gray-600">{t('comingSoon.settings')}</p>
           </div>
         );
       default:
@@ -64,9 +66,11 @@ const AppContent: React.FC = () => {
 
 function App() {
   return (
-    <AuthProvider>
-      <AppContent />
-    </AuthProvider>
+    <LanguageProvider>
+      <AuthProvider>
+        <AppContent />
+      </AuthProvider>
+    </LanguageProvider>
   );
 }
 
