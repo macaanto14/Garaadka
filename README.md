@@ -1,1 +1,3 @@
 Garaadka
+
+A comprehensive laundry management system for Garaad wil waal Laundry based on your database schema. The application features a modern, professional design with complete order management, customer tracking, and staff authentication capabilities. The system includes a responsive dashboard with real-time analytics, intuitive order processing workflows, and proper data organization that aligns with your existing MySQL database structure.
