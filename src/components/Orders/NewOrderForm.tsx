@@ -61,10 +61,12 @@ const NewOrderForm: React.FC<NewOrderFormProps> = ({ isOpen, onClose, onSuccess 
   useEffect(() => {
     const loadCustomers = async () => {
       try {
-        const data = await customersAPI.getAll();
-        setCustomers(data);
+        // Use the latest customers endpoint for better performance
+        const data = await customersAPI.getLatest();
+        setCustomers(Array.isArray(data) ? data : []);
       } catch (err) {
         console.error('Failed to load customers:', err);
+        setCustomers([]);
       }
     };
     

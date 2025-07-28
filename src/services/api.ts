@@ -52,7 +52,7 @@ async function apiRequest<T>(endpoint: string, options: RequestInit = {}, showNo
         }));
       }
       
-      throw new Error(`HTTP error! status: ${response.status}`);
+      throw new Error(errorData.error || errorData.message || `HTTP error! status: ${response.status}`);
     }
     
     const data = await response.json();
@@ -114,7 +114,15 @@ export const authAPI = {
 
 // Customers API
 export const customersAPI = {
-  getAll: () => apiRequest('/customers', {}, false),
+  // Latest 5 customers (default, optimized)
+  getLatest: () => apiRequest('/customers', {}, false),
+  
+  // All customers (admin use)
+  getAll: () => apiRequest('/customers/all', {}, false),
+  
+  // Paginated customers
+  getPaginated: (page: number = 1, limit: number = 10) => 
+    apiRequest(`/customers/paginated?page=${page}&limit=${limit}`, {}, false),
   
   getById: (id: number) => apiRequest(`/customers/${id}`, {}, false),
   
@@ -135,28 +143,106 @@ export const customersAPI = {
       method: 'DELETE',
     }),
   
-  search: (query: string) => apiRequest(`/customers/search/${query}`, {}, false),
+  // Enhanced search capabilities
+  search: {
+    // General search (backwards compatible)
+    general: (query: string) => {
+      const encodedQuery = encodeURIComponent(query.trim());
+      return apiRequest(`/customers/search/${encodedQuery}`, {}, false);
+    },
+    
+    // Search by phone number
+    byPhone: (phone: string) => {
+      const encodedPhone = encodeURIComponent(phone.trim());
+      return apiRequest(`/customers/search/phone/${encodedPhone}`, {}, false);
+    },
+    
+    // Search by order ID
+    byOrderId: (orderId: string) => {
+      const encodedOrderId = encodeURIComponent(orderId.trim());
+      return apiRequest(`/customers/search/order/${encodedOrderId}`, {}, false);
+    },
+    
+    // Advanced search with query parameters
+    advanced: (params: {
+      phone?: string;
+      order_id?: string;
+      name?: string;
+      query?: string;
+      search_type?: 'any' | 'all';
+    }) => {
+      const searchParams = new URLSearchParams();
+      
+      Object.entries(params).forEach(([key, value]) => {
+        if (value && value.trim()) {
+          searchParams.append(key, value.trim());
+        }
+      });
+      
+      return apiRequest(`/customers/search?${searchParams.toString()}`, {}, false);
+    },
+    
+    // Smart search - automatically detects search type
+    smart: (input: string) => {
+      const trimmedInput = input.trim();
+      
+      // Don't process empty or very short inputs
+      if (trimmedInput.length === 0) {
+        return customersAPI.search.general(trimmedInput);
+      }
+      
+      // Phone number pattern - must be at least 7 digits and contain mostly numbers
+      const phonePattern = /^[0-9+\-\s()]{7,15}$/;
+      const digitCount = (trimmedInput.match(/\d/g) || []).length;
+      
+      // Order ID pattern - more specific patterns
+      const orderIdPatterns = [
+        /^ORD-\d{4}-\d{3,}$/i,           // ORD-2024-001 format
+        /^#\d{3,}$/,                     // #123 format (at least 3 digits)
+        /^\d{3,}$/                       // Pure numbers (at least 3 digits)
+      ];
+      
+      // Check if it's a phone number (at least 7 digits, mostly numeric)
+      if (phonePattern.test(trimmedInput) && digitCount >= 7) {
+        return customersAPI.search.byPhone(trimmedInput);
+      }
+      
+      // Check if it matches any order ID pattern
+      const isOrderId = orderIdPatterns.some(pattern => pattern.test(trimmedInput));
+      if (isOrderId) {
+        return customersAPI.search.byOrderId(trimmedInput);
+      }
+      
+      // Default to general search for names and other text
+      return customersAPI.search.general(trimmedInput);
+    }
+  },
+  
+  // Legacy search method for backwards compatibility
+  searchLegacy: (query: string) => customersAPI.search.smart(query),
 };
 
 // Orders API
 export const ordersAPI = {
   getAll: () => apiRequest('/orders', {}, false),
-  
-  getById: (id: number) => apiRequest(`/orders/${id}`, {}, false),
-  
-  create: (orderData: any) =>
-    apiRequest('/orders', {
-      method: 'POST',
-      body: JSON.stringify(orderData),
-    }),
-  
-  updateStatus: (id: number, status: string, updatedBy?: string) =>
-    apiRequest(`/orders/${id}/status`, {
-      method: 'PATCH',
-      body: JSON.stringify({ status, updated_by: updatedBy }),
-    }),
-  
-  getStats: () => apiRequest('/orders/stats/dashboard', {}, false),
+  getById: (id: string) => apiRequest(`/orders/${id}`, {}, false),
+  getByCustomer: (customerId: string) => apiRequest(`/orders/customer/${customerId}`, {}, false),
+  create: (orderData: any) => apiRequest('/orders', {
+    method: 'POST',
+    body: JSON.stringify(orderData),
+  }),
+  updateStatus: (id: string, status: string) => apiRequest(`/orders/${id}/status`, {
+    method: 'PATCH',
+    body: JSON.stringify({ status }),
+  }),
+  update: (id: string, orderData: any) => apiRequest(`/orders/${id}`, {
+    method: 'PUT',
+    body: JSON.stringify(orderData),
+  }),
+  delete: (id: string) => apiRequest(`/orders/${id}`, {
+    method: 'DELETE',
+  }),
+  getStats: () => apiRequest('/orders/stats/dashboard', {}, false)
 };
 
 // Payments API

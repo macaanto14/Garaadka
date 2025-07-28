@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { X, User, Phone, Mail, MapPin, Save } from 'lucide-react';
+import { X, User, Phone, Mail, MapPin, Save, AlertCircle } from 'lucide-react';
 import { customersAPI } from '../../services/api';
 import { useLanguage } from '../../contexts/LanguageContext';
 
@@ -17,6 +17,12 @@ interface CustomerFormData {
   notes: string;
 }
 
+interface ValidationErrors {
+  customer_name?: string;
+  phone_number?: string;
+  email?: string;
+}
+
 const CustomerRegistration: React.FC<CustomerRegistrationProps> = ({
   isOpen,
   onClose,
@@ -32,6 +38,52 @@ const CustomerRegistration: React.FC<CustomerRegistrationProps> = ({
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [validationErrors, setValidationErrors] = useState<ValidationErrors>({});
+
+  // Enhanced validation functions
+  const validateFullName = (name: string): string | null => {
+    const trimmedName = name.trim();
+    if (!trimmedName) {
+      return 'Customer name is required';
+    }
+    
+    const nameParts = trimmedName.split(' ').filter(part => part.length > 0);
+    if (nameParts.length < 2) {
+      return 'Please provide both first and last name (e.g., "Ahmed Hassan")';
+    }
+    
+    if (trimmedName.length < 3) {
+      return 'Name must be at least 3 characters long';
+    }
+    
+    return null;
+  };
+
+  const validatePhoneNumber = (phone: string): string | null => {
+    const trimmedPhone = phone.trim();
+    if (!trimmedPhone) {
+      return 'Phone number is required';
+    }
+    
+    // Basic Somali phone number validation
+    const phoneRegex = /^(\+252|252|0)?[1-9]\d{7,8}$/;
+    if (!phoneRegex.test(trimmedPhone.replace(/\s+/g, ''))) {
+      return 'Please enter a valid phone number (e.g., +252 61 234 5678 or 061 234 5678)';
+    }
+    
+    return null;
+  };
+
+  const validateEmail = (email: string): string | null => {
+    if (!email.trim()) return null; // Email is optional
+    
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      return 'Please enter a valid email address (e.g., customer@email.com)';
+    }
+    
+    return null;
+  };
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
@@ -39,6 +91,30 @@ const CustomerRegistration: React.FC<CustomerRegistrationProps> = ({
       ...prev,
       [name]: value,
     }));
+
+    // Clear validation error for this field when user starts typing
+    if (validationErrors[name as keyof ValidationErrors]) {
+      setValidationErrors(prev => ({
+        ...prev,
+        [name]: undefined,
+      }));
+    }
+  };
+
+  const validateForm = (): boolean => {
+    const errors: ValidationErrors = {};
+    
+    const nameError = validateFullName(formData.customer_name);
+    if (nameError) errors.customer_name = nameError;
+    
+    const phoneError = validatePhoneNumber(formData.phone_number);
+    if (phoneError) errors.phone_number = phoneError;
+    
+    const emailError = validateEmail(formData.email);
+    if (emailError) errors.email = emailError;
+    
+    setValidationErrors(errors);
+    return Object.keys(errors).length === 0;
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -46,15 +122,13 @@ const CustomerRegistration: React.FC<CustomerRegistrationProps> = ({
     setIsSubmitting(true);
     setError(null);
 
-    try {
-      // Validate required fields
-      if (!formData.customer_name.trim()) {
-        throw new Error('Customer name is required');
-      }
-      if (!formData.phone_number.trim()) {
-        throw new Error('Phone number is required');
-      }
+    // Validate form
+    if (!validateForm()) {
+      setIsSubmitting(false);
+      return;
+    }
 
+    try {
       await customersAPI.create(formData);
       
       // Reset form
@@ -65,11 +139,19 @@ const CustomerRegistration: React.FC<CustomerRegistrationProps> = ({
         address: '',
         notes: '',
       });
+      setValidationErrors({});
       
       onSuccess();
       onClose();
     } catch (err: any) {
-      setError(err.message || 'Failed to register customer');
+      // Handle specific backend validation errors
+      if (err.message.includes('phone number already exists')) {
+        setValidationErrors({ phone_number: 'This phone number is already registered with another customer' });
+      } else if (err.message.includes('validation')) {
+        setError('Please check your input and try again');
+      } else {
+        setError(err.message || 'Failed to register customer');
+      }
     } finally {
       setIsSubmitting(false);
     }
@@ -96,8 +178,9 @@ const CustomerRegistration: React.FC<CustomerRegistrationProps> = ({
         {/* Form */}
         <form onSubmit={handleSubmit} className="p-6 space-y-4">
           {error && (
-            <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg">
-              {error}
+            <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg flex items-start space-x-2">
+              <AlertCircle className="h-5 w-5 mt-0.5 flex-shrink-0" />
+              <span>{error}</span>
             </div>
           )}
 
@@ -113,9 +196,17 @@ const CustomerRegistration: React.FC<CustomerRegistrationProps> = ({
               value={formData.customer_name}
               onChange={handleInputChange}
               required
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              placeholder="Enter customer name"
+              className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
+                validationErrors.customer_name ? 'border-red-300 bg-red-50' : 'border-gray-300'
+              }`}
+              placeholder="Enter full name (e.g., Ahmed Hassan)"
             />
+            {validationErrors.customer_name && (
+              <p className="mt-1 text-sm text-red-600 flex items-center space-x-1">
+                <AlertCircle className="h-4 w-4" />
+                <span>{validationErrors.customer_name}</span>
+              </p>
+            )}
           </div>
 
           {/* Phone Number */}
@@ -130,32 +221,48 @@ const CustomerRegistration: React.FC<CustomerRegistrationProps> = ({
               value={formData.phone_number}
               onChange={handleInputChange}
               required
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              placeholder="+252 XX XXX XXXX"
+              className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
+                validationErrors.phone_number ? 'border-red-300 bg-red-50' : 'border-gray-300'
+              }`}
+              placeholder="+252 61 234 5678 or 061 234 5678"
             />
+            {validationErrors.phone_number && (
+              <p className="mt-1 text-sm text-red-600 flex items-center space-x-1">
+                <AlertCircle className="h-4 w-4" />
+                <span>{validationErrors.phone_number}</span>
+              </p>
+            )}
           </div>
 
           {/* Email */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
               <Mail className="inline h-4 w-4 mr-1" />
-              {t('customers.email')}
+              {t('customers.email')} (Optional)
             </label>
             <input
               type="email"
               name="email"
               value={formData.email}
               onChange={handleInputChange}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
+                validationErrors.email ? 'border-red-300 bg-red-50' : 'border-gray-300'
+              }`}
               placeholder="customer@email.com"
             />
+            {validationErrors.email && (
+              <p className="mt-1 text-sm text-red-600 flex items-center space-x-1">
+                <AlertCircle className="h-4 w-4" />
+                <span>{validationErrors.email}</span>
+              </p>
+            )}
           </div>
 
           {/* Address */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
               <MapPin className="inline h-4 w-4 mr-1" />
-              {t('customers.address')}
+              {t('customers.address')} (Optional)
             </label>
             <input
               type="text"
@@ -170,7 +277,7 @@ const CustomerRegistration: React.FC<CustomerRegistrationProps> = ({
           {/* Notes */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
-              Notes
+              Notes (Optional)
             </label>
             <textarea
               name="notes"

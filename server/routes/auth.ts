@@ -1,137 +1,15 @@
 import express from 'express';
 import { db } from '../index';
-import { RowDataPacket } from 'mysql2';
+import { RowDataPacket, ResultSetHeader } from 'mysql2';
+import { auditMiddleware, addAuditFieldsForInsert, addAuditFieldsForUpdate, AuditableRequest } from '../middleware/auditMiddleware';
+import { hashPassword, comparePassword } from '../utils/password';
 import { generateToken, verifyToken } from '../middleware/auth';
-import { comparePassword, hashPassword } from '../utils/password';
 
 const router = express.Router();
 
-// Login endpoint with JWT
-router.post('/login', async (req, res) => {
-  try {
-    const { username, password } = req.body;
-
-    if (!username || !password) {
-      return res.status(400).json({ error: 'Username and password are required' });
-    }
-
-    // Query the user accounts table
-    const [rows] = await db.execute<RowDataPacket[]>(
-      'SELECT * FROM `user accounts` WHERE USERNAME = ?',
-      [username]
-    );
-
-    if (rows.length === 0) {
-      return res.status(401).json({ error: 'Invalid credentials' });
-    }
-
-    const user = rows[0];
-
-    // Check password (support both hashed and plain text for migration)
-    let isValidPassword = false;
-
-    if (user.PASSWORD.startsWith('$2a$') || user.PASSWORD.startsWith('$2b$')) {
-      // Password is already hashed
-      isValidPassword = await comparePassword(password, user.PASSWORD);
-    } else {
-      // Plain text password (for backward compatibility)
-      isValidPassword = password === user.PASSWORD;
-      
-      // If login is successful with plain text, hash and update the password
-      if (isValidPassword) {
-        try {
-          const hashedPassword = await hashPassword(password);
-          await db.execute(
-            'UPDATE `user accounts` SET PASSWORD = ? WHERE `PERSONAL ID` = ?',
-            [hashedPassword, user['PERSONAL ID']]
-          );
-        } catch (updateError) {
-          console.error('Failed to update password hash:', updateError);
-          // Continue with login even if password update fails
-          // This allows the user to login while you fix the database schema
-        }
-      }
-    }
-
-    if (!isValidPassword) {
-      return res.status(401).json({ error: 'Invalid credentials' });
-    }
-
-    // Generate JWT token
-    const token = generateToken(user);
-
-    // Log the login activity in audit table
-    await db.execute(
-      'INSERT INTO audit (emp_id, date, status) VALUES (?, ?, ?)',
-      [user.USERNAME, new Date().toLocaleString(), 'User Login']
-    );
-
-    // Return user data (excluding password) and token
-    const { PASSWORD, ...userWithoutPassword } = user;
-    res.json({
-      success: true,
-      user: userWithoutPassword,
-      token,
-      expiresIn: '24h'
-    });
-
-  } catch (error) {
-    console.error('Login error:', error);
-    res.status(500).json({ error: 'Internal server error' });
-  }
-});
-
-// Refresh token endpoint
-router.post('/refresh', verifyToken, async (req, res) => {
-  try {
-    if (!req.user) {
-      return res.status(401).json({ error: 'Invalid token' });
-    }
-
-    // Get fresh user data
-    const [rows] = await db.execute<RowDataPacket[]>(
-      'SELECT * FROM `user accounts` WHERE `PERSONAL ID` = ?',
-      [req.user.id]
-    );
-
-    if (rows.length === 0) {
-      return res.status(401).json({ error: 'User not found' });
-    }
-
-    const user = rows[0];
-    const newToken = generateToken(user);
-
-    const { PASSWORD, ...userWithoutPassword } = user;
-    res.json({
-      success: true,
-      user: userWithoutPassword,
-      token: newToken,
-      expiresIn: '24h'
-    });
-
-  } catch (error) {
-    console.error('Token refresh error:', error);
-    res.status(500).json({ error: 'Internal server error' });
-  }
-});
-
-// Logout endpoint (optional - for audit logging)
-router.post('/logout', verifyToken, async (req, res) => {
-  try {
-    if (req.user) {
-      // Log the logout activity in audit table
-      await db.execute(
-        'INSERT INTO audit (emp_id, date, status) VALUES (?, ?, ?)',
-        [req.user.username, new Date().toLocaleString(), 'User Logout']
-      );
-    }
-
-    res.json({ success: true, message: 'Logged out successfully' });
-  } catch (error) {
-    console.error('Logout error:', error);
-    res.status(500).json({ error: 'Internal server error' });
-  }
-});
+// Apply audit middleware to routes that need it
+router.use('/register', auditMiddleware);
+router.use('/update-profile', auditMiddleware);
 
 // Get user profile (protected route)
 router.get('/profile', verifyToken, async (req, res) => {
@@ -140,93 +18,331 @@ router.get('/profile', verifyToken, async (req, res) => {
       return res.status(401).json({ error: 'Authentication required' });
     }
 
-    const [rows] = await db.execute<RowDataPacket[]>(
-      'SELECT `PERSONAL ID`, fname, USERNAME, CITY, PHONENO, POSITION, IMAGE FROM `user accounts` WHERE `PERSONAL ID` = ?',
+    // Get user from database
+    const [users] = await db.execute<RowDataPacket[]>(
+      'SELECT * FROM `user accounts` WHERE `PERSONAL ID` = ? AND deleted_at IS NULL',
       [req.user.id]
     );
 
-    if (rows.length === 0) {
+    if (users.length === 0) {
       return res.status(404).json({ error: 'User not found' });
     }
 
-    res.json(rows[0]);
+    const user = users[0];
+    const { PASSWORD, ...userWithoutPassword } = user;
+    
+    res.json(userWithoutPassword);
+
   } catch (error) {
-    console.error('Profile fetch error:', error);
+    console.error('Error fetching profile:', error);
     res.status(500).json({ error: 'Internal server error' });
   }
 });
 
-// Change password endpoint
-router.post('/change-password', verifyToken, async (req, res) => {
+// Refresh token endpoint
+router.post('/refresh', verifyToken, async (req, res) => {
   try {
+    if (!req.user) {
+      return res.status(401).json({ error: 'Authentication required' });
+    }
+
+    // Get fresh user data
+    const [users] = await db.execute<RowDataPacket[]>(
+      'SELECT * FROM `user accounts` WHERE `PERSONAL ID` = ? AND deleted_at IS NULL',
+      [req.user.id]
+    );
+
+    if (users.length === 0) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    const user = users[0];
+    
+    // Generate new token
+    const token = generateToken(user);
+    
+    const { PASSWORD, ...userWithoutPassword } = user;
+    
+    res.json({
+      success: true,
+      user: userWithoutPassword,
+      token: token
+    });
+
+  } catch (error) {
+    console.error('Error refreshing token:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Login route (with audit logging)
+router.post('/login', async (req, res) => {
+  try {
+    const { username, password } = req.body;
+
+    if (!username || !password) {
+      return res.status(400).json({ error: 'Username and password are required' });
+    }
+
+    // Get user from database
+    const [users] = await db.execute<RowDataPacket[]>(
+      'SELECT * FROM `user accounts` WHERE USERNAME = ?',
+      [username]
+    );
+
+    if (users.length === 0) {
+      // Log failed login attempt
+      await db.execute(
+        'INSERT INTO audit (emp_id, date, status, action_type, table_name) VALUES (?, ?, ?, ?, ?)',
+        [username, new Date().toISOString().slice(0, 19).replace('T', ' '), 
+         'Failed Login - User Not Found', 'LOGIN', 'user accounts']
+      );
+      return res.status(401).json({ error: 'Invalid credentials' });
+    }
+
+    const user = users[0];
+
+    // Verify password using utility function
+    const isValidPassword = await comparePassword(password, user.PASSWORD);
+
+    if (!isValidPassword) {
+      // Log failed login attempt
+      await db.execute(
+        'INSERT INTO audit (emp_id, date, status, action_type, table_name, record_id) VALUES (?, ?, ?, ?, ?, ?)',
+        [username, new Date().toISOString().slice(0, 19).replace('T', ' '), 
+         'Failed Login - Invalid Password', 'LOGIN', 'user accounts', user['PERSONAL ID']]
+      );
+      return res.status(401).json({ error: 'Invalid credentials' });
+    }
+
+    // Generate JWT token
+    const token = generateToken(user);
+
+    // Log successful login
+    await db.execute(
+      'INSERT INTO audit (emp_id, date, status, action_type, table_name, record_id) VALUES (?, ?, ?, ?, ?, ?)',
+      [username, new Date().toISOString().slice(0, 19).replace('T', ' '), 
+       'User Login', 'LOGIN', 'user accounts', user['PERSONAL ID']]
+    );
+
+    // Return user data (excluding password) with JWT token
+    const { PASSWORD, ...userWithoutPassword } = user;
+    res.json({
+      success: true,
+      user: userWithoutPassword,
+      token: token,
+      message: 'Login successful'
+    });
+
+  } catch (error) {
+    console.error('Error during login:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Register new user with audit logging
+router.post('/register', async (req: AuditableRequest, res) => {
+  try {
+    const { 
+      personal_id, 
+      fname, 
+      username, 
+      password, 
+      city, 
+      phone_no, 
+      position, 
+      sec_que, 
+      answer 
+    } = req.body;
+
+    if (!personal_id || !fname || !username || !password) {
+      return res.status(400).json({ error: 'Personal ID, name, username, and password are required' });
+    }
+
+    // Check if user already exists
+    const [existingUsers] = await db.execute<RowDataPacket[]>(
+      'SELECT * FROM `user accounts` WHERE USERNAME = ? OR `PERSONAL ID` = ?',
+      [username, personal_id]
+    );
+
+    if (existingUsers.length > 0) {
+      return res.status(409).json({ error: 'User already exists' });
+    }
+
+    // Hash password using utility function
+    const hashedPassword = await hashPassword(password);
+
+    const userData = addAuditFieldsForInsert({
+      personal_id,
+      fname,
+      username,
+      password: hashedPassword,
+      city,
+      phone_no,
+      position,
+      sec_que,
+      answer
+    }, req.auditUser || 'system');
+
+    // Create user
+    const [result] = await db.execute<ResultSetHeader>(
+      `INSERT INTO \`user accounts\` 
+       (\`PERSONAL ID\`, fname, USERNAME, PASSWORD, CITY, PHONENO, POSITION, sec_que, answer, created_at, updated_at, created_by, updated_by) 
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [userData.personal_id, userData.fname, userData.username, userData.password, 
+       userData.city, userData.phone_no, userData.position, userData.sec_que, userData.answer,
+       userData.created_at, userData.updated_at, userData.created_by, userData.updated_by]
+    );
+
+    // Log to audit table
+    await db.execute(
+      'INSERT INTO audit (emp_id, date, status, action_type, table_name, record_id, new_values) VALUES (?, ?, ?, ?, ?, ?, ?)',
+      [req.auditUser, new Date().toISOString().slice(0, 19).replace('T', ' '), 
+       'Created User Account', 'CREATE', 'user accounts', personal_id, JSON.stringify({...userData, password: '[HIDDEN]'})]
+    );
+
+    res.status(201).json({
+      success: true,
+      message: 'User registered successfully'
+    });
+
+  } catch (error) {
+    console.error('Error during registration:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Update user profile with audit logging
+router.put('/update-profile/:id', async (req: AuditableRequest, res) => {
+  try {
+    const { id } = req.params;
+    const { fname, city, phone_no, position } = req.body;
+
+    // Get old values for audit
+    const [oldUser] = await db.execute<RowDataPacket[]>(
+      'SELECT * FROM `user accounts` WHERE `PERSONAL ID` = ? AND deleted_at IS NULL', 
+      [id]
+    );
+    
+    if (oldUser.length === 0) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    const updateData = addAuditFieldsForUpdate({
+      fname,
+      city,
+      phone_no,
+      position
+    }, req.auditUser || 'system');
+
+    const [result] = await db.execute<ResultSetHeader>(
+      `UPDATE \`user accounts\` SET 
+       fname = ?, CITY = ?, PHONENO = ?, POSITION = ?, updated_at = ?, updated_by = ?
+       WHERE \`PERSONAL ID\` = ? AND deleted_at IS NULL`,
+      [updateData.fname, updateData.city, updateData.phone_no, updateData.position, 
+       updateData.updated_at, updateData.updated_by, id]
+    );
+
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    // Log to audit table
+    await db.execute(
+      'INSERT INTO audit (emp_id, date, status, action_type, table_name, record_id, old_values, new_values) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+      [req.auditUser, new Date().toISOString().slice(0, 19).replace('T', ' '), 
+       'Updated User Profile', 'UPDATE', 'user accounts', id, JSON.stringify(oldUser[0]), JSON.stringify(updateData)]
+    );
+
+    res.json({ success: true, message: 'Profile updated successfully' });
+
+  } catch (error) {
+    console.error('Error updating profile:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Change password with audit logging
+router.put('/change-password/:id', async (req: AuditableRequest, res) => {
+  try {
+    const { id } = req.params;
     const { currentPassword, newPassword } = req.body;
 
     if (!currentPassword || !newPassword) {
       return res.status(400).json({ error: 'Current password and new password are required' });
     }
 
-    if (!req.user) {
-      return res.status(401).json({ error: 'Authentication required' });
-    }
-
-    // Get current user data
-    const [rows] = await db.execute<RowDataPacket[]>(
-      'SELECT PASSWORD FROM `user accounts` WHERE `PERSONAL ID` = ?',
-      [req.user.id]
+    // Get user
+    const [users] = await db.execute<RowDataPacket[]>(
+      'SELECT * FROM `user accounts` WHERE `PERSONAL ID` = ? AND deleted_at IS NULL',
+      [id]
     );
 
-    if (rows.length === 0) {
+    if (users.length === 0) {
       return res.status(404).json({ error: 'User not found' });
     }
 
-    const user = rows[0];
+    const user = users[0];
 
-    // Verify current password
-    let isValidPassword = false;
-    if (user.PASSWORD.startsWith('$2a$') || user.PASSWORD.startsWith('$2b$')) {
-      isValidPassword = await comparePassword(currentPassword, user.PASSWORD);
-    } else {
-      isValidPassword = currentPassword === user.PASSWORD;
-    }
+    // Verify current password using utility function
+    const isValidPassword = await comparePassword(currentPassword, user.PASSWORD);
 
     if (!isValidPassword) {
-      return res.status(400).json({ error: 'Current password is incorrect' });
+      // Log failed password change attempt
+      await db.execute(
+        'INSERT INTO audit (emp_id, date, status, action_type, table_name, record_id) VALUES (?, ?, ?, ?, ?, ?)',
+        [req.auditUser, new Date().toISOString().slice(0, 19).replace('T', ' '), 
+         'Failed Password Change - Invalid Current Password', 'UPDATE', 'user accounts', id]
+      );
+      return res.status(401).json({ error: 'Current password is incorrect' });
     }
 
-    // Hash new password
+    // Hash new password using utility function
     const hashedNewPassword = await hashPassword(newPassword);
+
+    const updateData = addAuditFieldsForUpdate({
+      password: hashedNewPassword
+    }, req.auditUser || 'system');
 
     // Update password
     await db.execute(
-      'UPDATE `user accounts` SET PASSWORD = ? WHERE `PERSONAL ID` = ?',
-      [hashedNewPassword, req.user.id]
+      'UPDATE `user accounts` SET PASSWORD = ?, updated_at = ?, updated_by = ? WHERE `PERSONAL ID` = ?',
+      [hashedNewPassword, updateData.updated_at, updateData.updated_by, id]
     );
 
-    // Log the password change
+    // Log successful password change
     await db.execute(
-      'INSERT INTO audit (emp_id, date, status) VALUES (?, ?, ?)',
-      [req.user.username, new Date().toLocaleString(), 'Password Changed']
+      'INSERT INTO audit (emp_id, date, status, action_type, table_name, record_id) VALUES (?, ?, ?, ?, ?, ?)',
+      [req.auditUser, new Date().toISOString().slice(0, 19).replace('T', ' '), 
+       'Password Changed Successfully', 'UPDATE', 'user accounts', id]
     );
 
     res.json({ success: true, message: 'Password changed successfully' });
 
   } catch (error) {
-    console.error('Change password error:', error);
+    console.error('Error changing password:', error);
     res.status(500).json({ error: 'Internal server error' });
   }
 });
 
-// Test endpoint to check users (for debugging)
-router.get('/test-users', async (req, res) => {
+// Logout with audit logging
+router.post('/logout', async (req, res) => {
   try {
-    const [rows] = await db.execute<RowDataPacket[]>(
-      'SELECT `PERSONAL ID`, fname, USERNAME, POSITION FROM `user accounts`'
-    );
-    
-    console.log('All users in database:', rows);
-    res.json({ users: rows, count: rows.length });
+    const { username } = req.body;
+
+    if (username) {
+      // Log logout
+      await db.execute(
+        'INSERT INTO audit (emp_id, date, status, action_type, table_name) VALUES (?, ?, ?, ?, ?)',
+        [username, new Date().toISOString().slice(0, 19).replace('T', ' '), 
+         'User Logout', 'LOGOUT', 'user accounts']
+      );
+    }
+
+    res.json({ success: true, message: 'Logged out successfully' });
+
   } catch (error) {
-    console.error('Test users error:', error);
+    console.error('Error during logout:', error);
     res.status(500).json({ error: 'Internal server error' });
   }
 });

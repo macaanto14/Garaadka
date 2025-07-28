@@ -11,6 +11,7 @@ import CustomerList from './components/Customers/CustomerList';
 import PaymentManagement from './components/Payments/PaymentManagement';
 import AuditLogs from './components/Audit/AuditLogs';
 import NotificationContainer from './components/Common/NotificationContainer';
+import ToastListener from './components/Common/ToastListener';
 
 const AppContent: React.FC = () => {
   const { user, isLoading } = useAuth();
@@ -66,6 +67,7 @@ const AppContent: React.FC = () => {
         </main>
       </div>
       <NotificationContainer />
+      <ToastListener />
     </div>
   );
 };

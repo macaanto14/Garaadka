@@ -1,6 +1,7 @@
 import React from 'react';
 import { ShoppingBag, Users, DollarSign, TrendingUp, Clock, CheckCircle } from 'lucide-react';
 import StatCard from './StatCard';
+import CustomerSearch from './CustomerSearch';
 import { useLanguage } from '../../contexts/LanguageContext';
 
 const Dashboard: React.FC = () => {
@@ -75,6 +76,9 @@ const Dashboard: React.FC = () => {
           <StatCard key={index} {...stat} />
         ))}
       </div>
+
+      {/* Customer Search Section */}
+      <CustomerSearch />
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Recent Orders */}
