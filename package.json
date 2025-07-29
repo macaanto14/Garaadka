@@ -5,11 +5,15 @@
   "type": "module",
   "scripts": {
     "dev": "concurrently \"npm run server\" \"npm run client\"",
+    "dev:cloud": "concurrently \"npm run test:cloud\" \"npm run client:cloud\"",
     "client": "vite",
+    "client:cloud": "vite --mode production",
     "server": "nodemon",
     "build": "vite build",
+    "build:cloud": "vite build --mode production",
     "lint": "eslint .",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "test:cloud": "cd server && npm run test:cloud"
   },
   "dependencies": {
     "axios": "^1.11.0",

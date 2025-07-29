@@ -11,7 +11,9 @@
     "build": "tsc",
     "test:customers": "node test-customers.js",
     "test:customers:verbose": "node test-customers.js --verbose",
-    "test:env": "tsx test-env.ts"
+    "test:env": "tsx test-env.ts",
+    "test:cloud": "node test-cloud-connection.js",
+    "test:cloud:verbose": "node test-cloud-connection.js --verbose"
   },
   "dependencies": {
     "axios": "^1.6.0",

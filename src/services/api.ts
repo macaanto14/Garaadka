@@ -1,4 +1,5 @@
-const API_BASE_URL = 'http://localhost:5000/api';
+// Use environment variable or fallback to cloud deployment
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://47.236.39.181:5000/api';
 
 // Token management
 const getToken = (): string | null => {

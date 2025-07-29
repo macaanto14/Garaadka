@@ -59,3 +59,16 @@ Toast.success('Any success message to be displayed');
 Toast.error('Any error message to be displayed');
 Toast.info('Any informative message to be displayed');
 Toast.warning('Any warning message to be displayed'); // Bonus!
+
+
+# Test health endpoint
+curl http://47.236.39.181:5000/api/health
+
+# Or run the batch file
+test-cloud.bat
+
+# Development with cloud backend
+npm run dev:cloud
+
+# Build for production with cloud backend  
+npm run build:cloud
