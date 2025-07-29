@@ -10,7 +10,8 @@
     "start": "tsx index.ts",
     "build": "tsc",
     "test:customers": "node test-customers.js",
-    "test:customers:verbose": "node test-customers.js --verbose"
+    "test:customers:verbose": "node test-customers.js --verbose",
+    "test:env": "tsx test-env.ts"
   },
   "dependencies": {
     "axios": "^1.6.0",

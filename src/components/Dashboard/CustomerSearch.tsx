@@ -365,7 +365,7 @@ const CustomerSearch: React.FC = () => {
                       </span>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      ${order.total_amount.toFixed(2)}
+                      ${typeof order.total_amount === 'number' ? order.total_amount.toFixed(2) : parseFloat(order.total_amount || '0').toFixed(2)}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                       {order.due_date ? new Date(order.due_date).toLocaleDateString() : 'N/A'}
