@@ -6,8 +6,9 @@
   "main": "index.ts",
   "scripts": {
     "server": "tsx index.ts",
-    "dev": "tsx watch index.ts",
+    "dev": "NODE_ENV=development tsx watch index.ts",
     "start": "tsx index.ts",
+    "start:prod": "NODE_ENV=production tsx index.ts",
     "build": "tsc",
     "test:customers": "node test-customers.js",
     "test:customers:verbose": "node test-customers.js --verbose",

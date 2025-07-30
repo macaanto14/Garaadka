@@ -1,5 +1,7 @@
-// Use environment variable or fallback to cloud deployment
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://47.236.39.181:5000/api';
+import { config } from '../config/environment';
+
+// Use environment configuration with proper fallbacks
+const API_BASE_URL = config.apiBaseUrl;
 
 // Token management
 const getToken = (): string | null => {
@@ -19,7 +21,12 @@ async function apiRequest<T>(endpoint: string, options: RequestInit = {}, showNo
   const url = `${API_BASE_URL}${endpoint}`;
   const token = getToken();
   
-  const config: RequestInit = {
+  // Log API requests in development
+  if (config.isDevelopment && config.debug) {
+    console.log(`🌐 API Request: ${options.method || 'GET'} ${url}`);
+  }
+  
+  const requestConfig: RequestInit = {
     headers: {
       'Content-Type': 'application/json',
       ...(token && { Authorization: `Bearer ${token}` }),
@@ -29,7 +36,7 @@ async function apiRequest<T>(endpoint: string, options: RequestInit = {}, showNo
   };
 
   try {
-    const response = await fetch(url, config);
+    const response = await fetch(url, requestConfig);
     
     if (!response.ok) {
       // Handle token expiration
@@ -41,6 +48,11 @@ async function apiRequest<T>(endpoint: string, options: RequestInit = {}, showNo
       }
       
       const errorData = await response.json().catch(() => ({}));
+      
+      // Log API errors in development
+      if (config.isDevelopment) {
+        console.error(`❌ API Error: ${response.status} ${url}`, errorData);
+      }
       
       // Dispatch custom event for error notifications
       if (showNotifications) {
@@ -58,12 +70,17 @@ async function apiRequest<T>(endpoint: string, options: RequestInit = {}, showNo
     
     const data = await response.json();
     
+    // Log successful API responses in development
+    if (config.isDevelopment && config.debug) {
+      console.log(`✅ API Success: ${options.method || 'GET'} ${url}`, data);
+    }
+    
     // Dispatch custom event for success notifications (for POST, PUT, DELETE operations)
-    if (showNotifications && ['POST', 'PUT', 'DELETE', 'PATCH'].includes(config.method?.toUpperCase() || '')) {
+    if (showNotifications && ['POST', 'PUT', 'DELETE', 'PATCH'].includes(requestConfig.method?.toUpperCase() || '')) {
       window.dispatchEvent(new CustomEvent('api-success', {
         detail: {
           data,
-          method: config.method,
+          method: requestConfig.method,
           url: endpoint
         }
       }));
@@ -71,7 +88,14 @@ async function apiRequest<T>(endpoint: string, options: RequestInit = {}, showNo
     
     return data;
   } catch (error) {
-    console.error('API request failed:', error);
+    // Enhanced error logging in development
+    if (config.isDevelopment) {
+      console.error('💥 API request failed:', {
+        url,
+        method: options.method || 'GET',
+        error: error instanceof Error ? error.message : error
+      });
+    }
     throw error;
   }
 }
@@ -302,6 +326,62 @@ export const auditAPI = {
 // Receipts API
 export const receiptsAPI = {
   getOrderReceipt: (orderId: number) => apiRequest(`/receipts/order/${orderId}`, {}, false),
+};
+
+// Register API
+export const registerAPI = {
+  // Search by phone number
+  searchByPhone: (phone: string) => {
+    const encodedPhone = encodeURIComponent(phone.trim());
+    return apiRequest(`/register/search/${encodedPhone}`, {}, false);
+  },
+  
+  // Get all records with pagination and filtering
+  getAll: (page: number = 1, limit: number = 10, status?: string) => {
+    const params = new URLSearchParams({
+      page: page.toString(),
+      limit: limit.toString(),
+    });
+    
+    if (status) {
+      params.append('status', status);
+    }
+    
+    return apiRequest(`/register?${params.toString()}`, {}, false);
+  },
+  
+  // Get single record by ID
+  getById: (id: number) => apiRequest(`/register/${id}`, {}, false),
+  
+  // Create new register entry
+  create: (registerData: any) =>
+    apiRequest('/register', {
+      method: 'POST',
+      body: JSON.stringify(registerData),
+    }),
+  
+  // Update register entry
+  update: (id: number, registerData: any) =>
+    apiRequest(`/register/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(registerData),
+    }),
+  
+  // Update delivery status
+  updateStatus: (id: number, status: string, notes?: string) =>
+    apiRequest(`/register/${id}/status`, {
+      method: 'PUT',
+      body: JSON.stringify({ delivery_status: status, notes }),
+    }),
+  
+  // Soft delete register entry
+  delete: (id: number) =>
+    apiRequest(`/register/${id}`, {
+      method: 'DELETE',
+    }),
+  
+  // Get register statistics
+  getStats: () => apiRequest('/register/stats/summary', {}, false),
 };
 
 // Export token management functions
