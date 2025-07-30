@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
+import { ToastContainer } from 'react-toastify';
+import 'react-toastify/dist/ReactToastify.css';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { LanguageProvider, useLanguage } from './contexts/LanguageContext';
-import { NotificationProvider } from './contexts/NotificationContext';
 import { NavigationProvider, useNavigation } from './contexts/NavigationContext';
 import LoginForm from './components/Auth/LoginForm';
 import Sidebar from './components/Layout/Sidebar';
@@ -13,8 +14,7 @@ import RegisterSearch from './components/Register/RegisterSearch';
 import RegisterList from './components/Register/RegisterList';
 import PaymentManagement from './components/Payments/PaymentManagement';
 import AuditLogs from './components/Audit/AuditLogs';
-import NotificationContainer from './components/Common/NotificationContainer';
-import ToastListener from './components/Common/ToastListener';
+import Settings from './components/Settings/Settings';
 
 const RegisterManagement: React.FC = () => {
   const [activeRegisterTab, setActiveRegisterTab] = useState<'search' | 'list'>('search');
@@ -93,12 +93,7 @@ const AppContent: React.FC = () => {
       case 'audit':
         return <AuditLogs />;
       case 'settings':
-        return (
-          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-8 text-center">
-            <h3 className="text-xl font-semibold text-gray-900 mb-2">{t('nav.settings')}</h3>
-            <p className="text-gray-600">{t('comingSoon.settings')}</p>
-          </div>
-        );
+        return <Settings />;
       default:
         return <Dashboard />;
     }
@@ -113,8 +108,23 @@ const AppContent: React.FC = () => {
           {renderContent()}
         </main>
       </div>
-      <NotificationContainer />
-      <ToastListener />
+      {/* React Toastify Container */}
+      <ToastContainer
+        position="top-right"
+        autoClose={5000}
+        hideProgressBar={false}
+        newestOnTop={false}
+        closeOnClick
+        rtl={false}
+        pauseOnFocusLoss
+        draggable
+        pauseOnHover
+        theme="light"
+        className="toast-container"
+        toastClassName="toast-item"
+        bodyClassName="toast-body"
+        progressClassName="toast-progress"
+      />
     </div>
   );
 };
@@ -123,11 +133,9 @@ function App() {
   return (
     <LanguageProvider>
       <AuthProvider>
-        <NotificationProvider>
-          <NavigationProvider>
-            <AppContent />
-          </NavigationProvider>
-        </NotificationProvider>
+        <NavigationProvider>
+          <AppContent />
+        </NavigationProvider>
       </AuthProvider>
     </LanguageProvider>
   );

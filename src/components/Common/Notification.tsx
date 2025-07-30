@@ -13,10 +13,24 @@ const Notification: React.FC<NotificationProps> = ({ notification }) => {
 
   useEffect(() => {
     // Trigger entrance animation
-    setTimeout(() => setIsVisible(true), 10);
+    const timer = setTimeout(() => setIsVisible(true), 10);
+    return () => clearTimeout(timer);
   }, []);
 
+  // Auto-dismiss effect
+  useEffect(() => {
+    if (notification.duration && notification.duration > 0) {
+      const timer = setTimeout(() => {
+        handleClose();
+      }, notification.duration);
+
+      return () => clearTimeout(timer);
+    }
+  }, [notification.duration, notification.id]);
+
   const handleClose = () => {
+    if (isLeaving) return; // Prevent multiple close calls
+    
     setIsLeaving(true);
     setTimeout(() => {
       removeNotification(notification.id);
@@ -24,17 +38,18 @@ const Notification: React.FC<NotificationProps> = ({ notification }) => {
   };
 
   const getIcon = () => {
+    const iconClass = "h-6 w-6 sm:h-7 sm:w-7 text-white flex-shrink-0";
     switch (notification.type) {
       case 'success':
-        return <CheckCircle className="h-7 w-7 text-white" />;
+        return <CheckCircle className={iconClass} />;
       case 'error':
-        return <XCircle className="h-7 w-7 text-white" />;
+        return <XCircle className={iconClass} />;
       case 'warning':
-        return <AlertTriangle className="h-7 w-7 text-white" />;
+        return <AlertTriangle className={iconClass} />;
       case 'info':
-        return <Info className="h-7 w-7 text-white" />;
+        return <Info className={iconClass} />;
       default:
-        return <Info className="h-7 w-7 text-white" />;
+        return <Info className={iconClass} />;
     }
   };
 
@@ -62,32 +77,32 @@ const Notification: React.FC<NotificationProps> = ({ notification }) => {
       `}
     >
       <div className={`
-        max-w-md w-full shadow-2xl rounded-xl border-0 pointer-events-auto overflow-hidden
+        w-full sm:max-w-md shadow-2xl rounded-xl border-0 pointer-events-auto overflow-hidden
         ${getBackgroundColor()}
       `}>
-        <div className="p-6">
+        <div className="p-4 sm:p-6">
           <div className="flex items-start">
             <div className="flex-shrink-0">
               {getIcon()}
             </div>
-            <div className="ml-4 w-0 flex-1">
-              <p className="text-xl font-bold text-white leading-tight">
+            <div className="ml-3 sm:ml-4 w-0 flex-1 min-w-0">
+              <p className="text-lg sm:text-xl font-bold text-white leading-tight break-words">
                 {notification.title}
               </p>
               {notification.message && (
-                <p className="mt-2 text-base text-white opacity-95 leading-relaxed">
+                <p className="mt-1 sm:mt-2 text-sm sm:text-base text-white opacity-95 leading-relaxed break-words">
                   {notification.message}
                 </p>
               )}
             </div>
             {notification.closable && (
-              <div className="ml-4 flex-shrink-0 flex">
+              <div className="ml-3 sm:ml-4 flex-shrink-0 flex">
                 <button
                   onClick={handleClose}
-                  className="inline-flex rounded-md text-white hover:text-gray-200 focus:outline-none focus:ring-2 focus:ring-white focus:ring-opacity-50 transition-colors duration-200"
+                  className="inline-flex rounded-md text-white hover:text-gray-200 focus:outline-none focus:ring-2 focus:ring-white focus:ring-opacity-50 transition-colors duration-200 p-1"
+                  aria-label="Close notification"
                 >
-                  <span className="sr-only">Close</span>
-                  <X className="h-5 w-5" />
+                  <X className="h-4 w-4 sm:h-5 sm:w-5" />
                 </button>
               </div>
             )}

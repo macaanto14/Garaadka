@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useCallback } from 'react';
+import React, { createContext, useContext, useState, useCallback, useRef } from 'react';
 
 export type NotificationType = 'success' | 'error' | 'warning' | 'info';
 
@@ -22,6 +22,18 @@ const NotificationContext = createContext<NotificationContextType | undefined>(u
 
 export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [notifications, setNotifications] = useState<NotificationData[]>([]);
+  const timeoutsRef = useRef<Map<string, NodeJS.Timeout>>(new Map());
+
+  const removeNotification = useCallback((id: string) => {
+    // Clear any existing timeout for this notification
+    const timeout = timeoutsRef.current.get(id);
+    if (timeout) {
+      clearTimeout(timeout);
+      timeoutsRef.current.delete(id);
+    }
+    
+    setNotifications(prev => prev.filter(notification => notification.id !== id));
+  }, []);
 
   const addNotification = useCallback((notification: Omit<NotificationData, 'id'>) => {
     const id = Math.random().toString(36).substr(2, 9);
@@ -36,17 +48,18 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
 
     // Auto remove after duration
     if (newNotification.duration && newNotification.duration > 0) {
-      setTimeout(() => {
+      const timeout = setTimeout(() => {
         removeNotification(id);
       }, newNotification.duration);
+      
+      timeoutsRef.current.set(id, timeout);
     }
-  }, []);
-
-  const removeNotification = useCallback((id: string) => {
-    setNotifications(prev => prev.filter(notification => notification.id !== id));
-  }, []);
+  }, [removeNotification]);
 
   const clearAllNotifications = useCallback(() => {
+    // Clear all timeouts
+    timeoutsRef.current.forEach(timeout => clearTimeout(timeout));
+    timeoutsRef.current.clear();
     setNotifications([]);
   }, []);
 

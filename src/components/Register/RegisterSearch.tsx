@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Search, Phone, Calendar, Package, DollarSign, User, FileText, Receipt, Truck, CheckCircle, Clock, AlertCircle } from 'lucide-react';
 import { useLanguage } from '../../contexts/LanguageContext';
-import { useNotify } from '../../hooks/useNotify';
+import { useToast } from '../../hooks/useToast';
 import { registerAPI } from '../../services/api';
 
 interface LaundryItem {
@@ -14,12 +14,14 @@ interface RegisterRecord {
   id: number;
   phone: string;
   customer_name: string;
-  laundry_items: LaundryItem[];
+  name: string;
+  laundry_items: LaundryItem[] | string;
   drop_off_date: string;
   pickup_date: string | null;
-  delivery_status: 'pending' | 'in_progress' | 'ready' | 'delivered';
+  delivery_status: 'pending' | 'ready' | 'delivered' | 'cancelled';
   total_amount: number;
   paid_amount: number;
+  balance: number;
   payment_status: 'pending' | 'partial' | 'paid';
   notes: string | null;
   receipt_number: string;
@@ -29,7 +31,7 @@ interface RegisterRecord {
 
 const RegisterSearch: React.FC = () => {
   const { t } = useLanguage();
-  const notify = useNotify();
+  const { notify } = useToast();
   const [searchPhone, setSearchPhone] = useState('');
   const [searchResults, setSearchResults] = useState<RegisterRecord[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -37,24 +39,30 @@ const RegisterSearch: React.FC = () => {
 
   const handleSearch = async () => {
     if (!searchPhone.trim()) {
-      notify.warning(t('register.enterPhoneNumber'));
+      notify.warning(t('register.enterPhoneNumber') || 'Please enter a phone number');
       return;
     }
 
     setIsLoading(true);
     try {
-      const results = await registerAPI.searchByPhone(searchPhone.trim());
+      const response = await registerAPI.searchByPhone(searchPhone.trim());
+      // Extract records array from the response object
+      const results = response.records || [];
       setSearchResults(results);
       setHasSearched(true);
       
       if (results.length === 0) {
-        notify.info(t('register.noRecordsFound'));
+        notify.info(t('register.noRecordsFound') || 'No records found');
       } else {
-        notify.success(t('register.foundRecords'), `Found ${results.length} records`);
+        notify.success(`Found ${results.length} records 📋`, {
+          position: 'top-right'
+        });
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Search error:', error);
-      notify.error(t('register.searchError'));
+      setSearchResults([]); // Set empty array on error
+      setHasSearched(true);
+      notify.apiError(error.response?.status || 500, error.response?.data?.error || error.message);
     } finally {
       setIsLoading(false);
     }
@@ -62,8 +70,10 @@ const RegisterSearch: React.FC = () => {
 
   const handleStatusUpdate = async (recordId: number, newStatus: string) => {
     try {
-      await registerAPI.updateDeliveryStatus(recordId, newStatus);
-      notify.success(t('register.statusUpdated'));
+      await registerAPI.updateStatus(recordId, newStatus);
+      notify.success('Status updated successfully! ✅', {
+        position: 'top-right'
+      });
       
       // Update the local state
       setSearchResults(prev => 
@@ -73,9 +83,9 @@ const RegisterSearch: React.FC = () => {
             : record
         )
       );
-    } catch (error) {
+    } catch (error: any) {
       console.error('Status update error:', error);
-      notify.error(t('register.statusUpdateError'));
+      notify.apiError(error.response?.status || 500, error.response?.data?.error || error.message);
     }
   };
 
@@ -83,12 +93,12 @@ const RegisterSearch: React.FC = () => {
     switch (status) {
       case 'pending':
         return <Clock className="w-4 h-4 text-yellow-500" />;
-      case 'in_progress':
-        return <AlertCircle className="w-4 h-4 text-blue-500" />;
       case 'ready':
         return <CheckCircle className="w-4 h-4 text-green-500" />;
       case 'delivered':
         return <Truck className="w-4 h-4 text-gray-500" />;
+      case 'cancelled':
+        return <AlertCircle className="w-4 h-4 text-red-500" />;
       default:
         return <Clock className="w-4 h-4 text-gray-400" />;
     }
@@ -98,12 +108,12 @@ const RegisterSearch: React.FC = () => {
     switch (status) {
       case 'pending':
         return 'bg-yellow-100 text-yellow-800 border-yellow-200';
-      case 'in_progress':
-        return 'bg-blue-100 text-blue-800 border-blue-200';
       case 'ready':
         return 'bg-green-100 text-green-800 border-green-200';
       case 'delivered':
         return 'bg-gray-100 text-gray-800 border-gray-200';
+      case 'cancelled':
+        return 'bg-red-100 text-red-800 border-red-200';
       default:
         return 'bg-gray-100 text-gray-800 border-gray-200';
     }
@@ -127,13 +137,27 @@ const RegisterSearch: React.FC = () => {
     });
   };
 
+  const parseLaundryItems = (items: LaundryItem[] | string | null): LaundryItem[] => {
+    if (!items) return [];
+    
+    try {
+      if (typeof items === 'string') {
+        return JSON.parse(items);
+      }
+      return Array.isArray(items) ? items : [];
+    } catch (e) {
+      console.error('Error parsing laundry items:', e);
+      return [];
+    }
+  };
+
   return (
     <div className="space-y-6">
       {/* Search Section */}
       <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
         <h2 className="text-xl font-semibold text-gray-900 mb-4 flex items-center">
           <Search className="w-5 h-5 mr-2 text-blue-600" />
-          {t('register.phoneNumber')}
+          {t('register.searchByPhone')}
         </h2>
         
         <div className="flex gap-4">
@@ -181,112 +205,130 @@ const RegisterSearch: React.FC = () => {
             </div>
           ) : (
             <div className="divide-y divide-gray-200">
-              {searchResults.map((record) => (
-                <div key={record.id} className="p-6 hover:bg-gray-50">
-                  <div className="flex items-start justify-between">
-                    <div className="flex-1 space-y-3">
-                      {/* Header */}
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center space-x-3">
-                          <div className="flex items-center space-x-2">
-                            <User className="w-4 h-4 text-gray-400" />
-                            <span className="font-medium text-gray-900">{record.customer_name}</span>
+              {searchResults.map((record) => {
+                const laundryItems = parseLaundryItems(record.laundry_items);
+                
+                return (
+                  <div key={record.id} className="p-6 hover:bg-gray-50 transition-colors">
+                    <div className="flex items-start justify-between">
+                      <div className="flex-1 space-y-4">
+                        {/* Header */}
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center space-x-3">
+                            <div className="flex items-center space-x-2">
+                              <User className="w-5 h-5 text-gray-400" />
+                              <span className="font-semibold text-gray-900">
+                                {record.customer_name || record.name}
+                              </span>
+                            </div>
+                            <div className="flex items-center space-x-2">
+                              <Phone className="w-4 h-4 text-gray-400" />
+                              <span className="text-gray-600">{record.phone}</span>
+                            </div>
                           </div>
-                          <div className="flex items-center space-x-2">
-                            <Phone className="w-4 h-4 text-gray-400" />
-                            <span className="text-gray-600">{record.phone}</span>
-                          </div>
-                          <div className="flex items-center space-x-2">
-                            <Receipt className="w-4 h-4 text-gray-400" />
-                            <span className="text-gray-600">{record.receipt_number}</span>
+                          <div className="flex items-center space-x-3">
+                            <div className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium border ${getStatusColor(record.delivery_status)}`}>
+                              {getStatusIcon(record.delivery_status)}
+                              <span className="ml-1 capitalize">
+                                {t(`register.status.${record.delivery_status}`) || record.delivery_status}
+                              </span>
+                            </div>
+                            <div className="flex items-center space-x-2">
+                              <Receipt className="w-4 h-4 text-gray-400" />
+                              <span className="text-sm text-gray-600">{record.receipt_number}</span>
+                            </div>
                           </div>
                         </div>
-                        <div className={`px-3 py-1 rounded-full text-xs font-medium border flex items-center space-x-1 ${getStatusColor(record.delivery_status)}`}>
-                          {getStatusIcon(record.delivery_status)}
-                          <span>{t(`register.status.${record.delivery_status}`) || record.delivery_status}</span>
-                        </div>
-                      </div>
 
-                      {/* Dates */}
-                      <div className="flex items-center space-x-6 text-sm text-gray-600">
-                        <div className="flex items-center space-x-2">
-                          <Calendar className="w-4 h-4" />
-                          <span>{t('register.dropOffDate')}: {formatDate(record.drop_off_date)}</span>
-                        </div>
-                        {record.pickup_date && (
-                          <div className="flex items-center space-x-2">
-                            <Calendar className="w-4 h-4" />
-                            <span>{t('register.pickupDate')}: {formatDate(record.pickup_date)}</span>
+                        {/* Laundry Items */}
+                        {laundryItems.length > 0 && (
+                          <div className="bg-gray-50 rounded-lg p-4">
+                            <h4 className="text-sm font-medium text-gray-900 mb-2 flex items-center">
+                              <Package className="w-4 h-4 mr-2" />
+                              Laundry Items
+                            </h4>
+                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">
+                              {laundryItems.map((item, index) => (
+                                <div key={index} className="flex justify-between items-center text-sm">
+                                  <span className="text-gray-700">{item.type}</span>
+                                  <span className="text-gray-500">
+                                    {item.quantity}x @ {formatCurrency(item.price)}
+                                  </span>
+                                </div>
+                              ))}
+                            </div>
                           </div>
                         )}
-                      </div>
 
-                      {/* Laundry Items */}
-                      <div className="space-y-2">
-                        <div className="flex items-center space-x-2">
-                          <Package className="w-4 h-4 text-gray-400" />
-                          <span className="text-sm font-medium text-gray-700">{t('register.laundryItems')}:</span>
-                        </div>
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2 ml-6">
-                          {record.laundry_items.map((item, index) => (
-                            <div key={index} className="text-sm text-gray-600 bg-gray-50 px-3 py-1 rounded">
-                              {item.type} × {item.quantity} - {formatCurrency(item.price)}
+                        {/* Dates and Financial Info */}
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                          <div className="flex items-center space-x-2">
+                            <Calendar className="w-4 h-4 text-gray-400" />
+                            <div>
+                              <p className="text-xs text-gray-500">Drop-off</p>
+                              <p className="text-sm text-gray-900">{formatDate(record.drop_off_date)}</p>
                             </div>
-                          ))}
+                          </div>
+                          
+                          {record.pickup_date && (
+                            <div className="flex items-center space-x-2">
+                              <Calendar className="w-4 h-4 text-gray-400" />
+                              <div>
+                                <p className="text-xs text-gray-500">Pickup</p>
+                                <p className="text-sm text-gray-900">{formatDate(record.pickup_date)}</p>
+                              </div>
+                            </div>
+                          )}
+                          
+                          <div className="flex items-center space-x-2">
+                            <DollarSign className="w-4 h-4 text-gray-400" />
+                            <div>
+                              <p className="text-xs text-gray-500">Total Amount</p>
+                              <p className="text-sm font-semibold text-gray-900">{formatCurrency(record.total_amount)}</p>
+                            </div>
+                          </div>
+                          
+                          <div className="flex items-center space-x-2">
+                            <DollarSign className="w-4 h-4 text-gray-400" />
+                            <div>
+                              <p className="text-xs text-gray-500">Balance</p>
+                              <p className={`text-sm font-semibold ${record.balance > 0 ? 'text-red-600' : 'text-green-600'}`}>
+                                {formatCurrency(record.balance)}
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Notes */}
+                        {record.notes && (
+                          <div className="flex items-start space-x-2">
+                            <FileText className="w-4 h-4 text-gray-400 mt-0.5" />
+                            <div>
+                              <p className="text-xs text-gray-500">Notes</p>
+                              <p className="text-sm text-gray-700">{record.notes}</p>
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Status Update */}
+                        <div className="flex items-center space-x-2 pt-2 border-t border-gray-100">
+                          <span className="text-sm text-gray-600">Update Status:</span>
+                          <select
+                            value={record.delivery_status}
+                            onChange={(e) => handleStatusUpdate(record.id, e.target.value)}
+                            className="text-sm border border-gray-300 rounded px-2 py-1 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                          >
+                            <option value="pending">{t('register.status.pending') || 'Pending'}</option>
+                            <option value="ready">{t('register.status.ready') || 'Ready'}</option>
+                            <option value="delivered">{t('register.status.delivered') || 'Delivered'}</option>
+                            <option value="cancelled">{t('register.status.cancelled') || 'Cancelled'}</option>
+                          </select>
                         </div>
                       </div>
-
-                      {/* Payment Info */}
-                      <div className="flex items-center space-x-6 text-sm">
-                        <div className="flex items-center space-x-2">
-                          <DollarSign className="w-4 h-4 text-gray-400" />
-                          <span className="text-gray-600">
-                            {t('register.totalAmount')}: <span className="font-medium">{formatCurrency(record.total_amount)}</span>
-                          </span>
-                        </div>
-                        <div className="flex items-center space-x-2">
-                          <span className="text-gray-600">
-                            Paid: <span className="font-medium">{formatCurrency(record.paid_amount)}</span>
-                          </span>
-                        </div>
-                        <div className={`px-2 py-1 rounded text-xs font-medium ${
-                          record.payment_status === 'paid' 
-                            ? 'bg-green-100 text-green-800' 
-                            : record.payment_status === 'partial'
-                            ? 'bg-yellow-100 text-yellow-800'
-                            : 'bg-red-100 text-red-800'
-                        }`}>
-                          {t(`status.${record.payment_status}`) || record.payment_status}
-                        </div>
-                      </div>
-
-                      {/* Notes */}
-                      {record.notes && (
-                        <div className="flex items-start space-x-2">
-                          <FileText className="w-4 h-4 text-gray-400 mt-0.5" />
-                          <span className="text-sm text-gray-600">{record.notes}</span>
-                        </div>
-                      )}
                     </div>
-
-                    {/* Status Update */}
-                    {record.delivery_status !== 'delivered' && (
-                      <div className="ml-4">
-                        <select
-                          value={record.delivery_status}
-                          onChange={(e) => handleStatusUpdate(record.id, e.target.value)}
-                          className="text-sm border border-gray-300 rounded px-3 py-1 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                        >
-                          <option value="pending">{t('status.pending')}</option>
-                          <option value="in_progress">In Progress</option>
-                          <option value="ready">{t('status.ready')}</option>
-                          <option value="delivered">{t('status.delivered')}</option>
-                        </select>
-                      </div>
-                    )}
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </div>

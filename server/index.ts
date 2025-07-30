@@ -9,6 +9,7 @@ import auditRouter from './routes/audit.js';
 import authRouter from './routes/auth.js';
 import receiptsRouter from './routes/receipts.js';
 import registerRouter from './routes/register.js';
+import registerLegacyRouter from './routes/register_legacy.js';
 
 dotenv.config();
 
@@ -51,6 +52,7 @@ app.use('/api/payments', paymentsRouter);
 app.use('/api/audit', auditRouter);
 app.use('/api/receipts', receiptsRouter);
 app.use('/api/register', registerRouter);
+app.use('/api/register-legacy', registerLegacyRouter);
 
 // Health check endpoint
 app.get('/api/health', (req, res) => {

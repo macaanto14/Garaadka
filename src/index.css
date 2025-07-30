@@ -1,3 +1,73 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+/* React Toastify Custom Styles */
+.toast-container {
+  width: auto;
+  max-width: 400px;
+}
+
+.toast-item {
+  border-radius: 12px;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+  font-family: inherit;
+}
+
+.toast-body {
+  padding: 16px;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.toast-progress {
+  height: 3px;
+}
+
+/* Custom toast animations */
+@keyframes slideInRight {
+  from {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+@keyframes slideOutRight {
+  from {
+    transform: translateX(0);
+    opacity: 1;
+  }
+  to {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+}
+
+.Toastify__toast--top-right {
+  animation: slideInRight 0.3s ease-out;
+}
+
+.Toastify__toast--top-right.Toastify__toast--exit {
+  animation: slideOutRight 0.3s ease-in;
+}
+
+/* Responsive toast styles */
+@media (max-width: 640px) {
+  .toast-container {
+    max-width: calc(100vw - 32px);
+    margin: 0 16px;
+  }
+  
+  .toast-item {
+    margin-bottom: 8px;
+  }
+  
+  .toast-body {
+    padding: 12px;
+    font-size: 13px;
+  }
+}

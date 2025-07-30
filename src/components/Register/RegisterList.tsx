@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Package, User, Calendar, DollarSign, Filter, ChevronLeft, ChevronRight, Clock, CheckCircle, XCircle } from 'lucide-react';
 import { useLanguage } from '../../contexts/LanguageContext';
-import { useNotification } from '../../contexts/NotificationContext';
+import { useToast } from '../../hooks/useToast';
 import { registerAPI } from '../../services/api';
 
 interface RegisterRecord {
@@ -35,7 +35,7 @@ interface PaginationInfo {
 
 const RegisterList: React.FC = () => {
   const { t } = useLanguage();
-  const { addNotification } = useNotification();
+  const { notify } = useToast();
   const [records, setRecords] = useState<RegisterRecord[]>([]);
   const [pagination, setPagination] = useState<PaginationInfo | null>(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -51,7 +51,7 @@ const RegisterList: React.FC = () => {
       setPagination(response.pagination);
     } catch (error: any) {
       console.error('Fetch records error:', error);
-      addNotification('error', error.response?.data?.error || t('register.fetchError'));
+      notify.apiError(error.response?.status || 500, error.response?.data?.error || error.message);
       setRecords([]);
     } finally {
       setIsLoading(false);
@@ -70,10 +70,12 @@ const RegisterList: React.FC = () => {
       // Refresh the current page
       await fetchRecords(currentPage, statusFilter);
       
-      addNotification('success', t('register.statusUpdated'));
+      notify.success('Status updated successfully! ✅', {
+        position: 'top-right'
+      });
     } catch (error: any) {
       console.error('Status update error:', error);
-      addNotification('error', error.response?.data?.error || t('register.statusUpdateError'));
+      notify.apiError(error.response?.status || 500, error.response?.data?.error || error.message);
     } finally {
       setUpdatingStatus(null);
     }
@@ -201,7 +203,9 @@ const RegisterList: React.FC = () => {
                             {record.customer_name || record.name}
                           </div>
                           {record.receipt_number && (
-                            <div className="text-xs text-gray-500">#{record.receipt_number}</div>
+                            <div className="text-sm text-gray-500">
+                              #{record.receipt_number}
+                            </div>
                           )}
                         </div>
                       </div>
@@ -209,46 +213,55 @@ const RegisterList: React.FC = () => {
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="text-sm text-gray-900">{record.phone}</div>
                       {record.email && (
-                        <div className="text-xs text-gray-500">{record.email}</div>
+                        <div className="text-sm text-gray-500">{record.email}</div>
                       )}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="flex items-center text-sm text-gray-900">
-                        <Calendar className="w-4 h-4 mr-2 text-gray-400" />
-                        {record.drop_off_date ? formatDate(record.drop_off_date) : t('common.notSet')}
+                      <div className="flex items-center">
+                        <Calendar className="w-4 h-4 text-gray-400 mr-2" />
+                        <span className="text-sm text-gray-900">
+                          {record.drop_off_date ? formatDate(record.drop_off_date) : formatDate(record.created_at)}
+                        </span>
                       </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm text-gray-900">{formatCurrency(record.total_amount)}</div>
-                      {record.balance > 0 && (
-                        <div className="text-xs text-red-600">{t('register.balance')}: {formatCurrency(record.balance)}</div>
-                      )}
+                      <div className="flex items-center">
+                        <DollarSign className="w-4 h-4 text-gray-400 mr-1" />
+                        <div>
+                          <div className="text-sm font-medium text-gray-900">
+                            {formatCurrency(record.total_amount)}
+                          </div>
+                          {record.balance > 0 && (
+                            <div className="text-sm text-red-600">
+                              Balance: {formatCurrency(record.balance)}
+                            </div>
+                          )}
+                        </div>
+                      </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <div className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(record.delivery_status)}`}>
+                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(record.delivery_status)}`}>
                         {getStatusIcon(record.delivery_status)}
-                        <span className="ml-1">{t(`status.${record.delivery_status}`)}</span>
-                      </div>
+                        <span className="ml-1 capitalize">
+                          {t(`status.${record.delivery_status}`) || record.delivery_status}
+                        </span>
+                      </span>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                      {record.delivery_status !== 'delivered' && record.delivery_status !== 'cancelled' && (
-                        <div className="flex space-x-1">
-                          {['ready', 'delivered', 'cancelled'].map((status) => (
-                            <button
-                              key={status}
-                              onClick={() => handleStatusUpdate(record.id, status)}
-                              disabled={updatingStatus === record.id}
-                              className={`px-2 py-1 rounded text-xs font-medium transition-colors ${
-                                status === 'delivered' 
-                                  ? 'bg-green-600 text-white hover:bg-green-700'
-                                  : status === 'ready'
-                                  ? 'bg-blue-600 text-white hover:bg-blue-700'
-                                  : 'bg-red-600 text-white hover:bg-red-700'
-                              } disabled:opacity-50 disabled:cursor-not-allowed`}
-                            >
-                              {updatingStatus === record.id ? '...' : t(`status.${status}`)}
-                            </button>
-                          ))}
+                      <select
+                        value={record.delivery_status}
+                        onChange={(e) => handleStatusUpdate(record.id, e.target.value)}
+                        disabled={updatingStatus === record.id}
+                        className="text-sm border border-gray-300 rounded px-2 py-1 focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:opacity-50"
+                      >
+                        <option value="pending">{t('status.pending') || 'Pending'}</option>
+                        <option value="ready">{t('status.ready') || 'Ready'}</option>
+                        <option value="delivered">{t('status.delivered') || 'Delivered'}</option>
+                        <option value="cancelled">{t('status.cancelled') || 'Cancelled'}</option>
+                      </select>
+                      {updatingStatus === record.id && (
+                        <div className="inline-block ml-2">
+                          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
                         </div>
                       )}
                     </td>
@@ -262,46 +275,29 @@ const RegisterList: React.FC = () => {
 
       {/* Pagination */}
       {pagination && pagination.total_pages > 1 && (
-        <div className="flex items-center justify-between bg-white px-6 py-3 border border-gray-200 rounded-lg">
+        <div className="flex items-center justify-between bg-white px-4 py-3 border border-gray-200 rounded-lg">
           <div className="flex items-center">
             <p className="text-sm text-gray-700">
-              {t('register.page')} {pagination.current_page} {t('common.of')} {pagination.total_pages}
+              {t('register.showingRecords')} <span className="font-medium">{((pagination.current_page - 1) * pagination.per_page) + 1}</span> {t('common.to')} <span className="font-medium">{Math.min(pagination.current_page * pagination.per_page, pagination.total)}</span> {t('common.of')} <span className="font-medium">{pagination.total}</span> {t('register.results')}
             </p>
           </div>
           <div className="flex items-center space-x-2">
             <button
               onClick={() => handlePageChange(pagination.current_page - 1)}
               disabled={!pagination.has_prev}
-              className="px-3 py-1 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="relative inline-flex items-center px-2 py-2 text-sm font-medium text-gray-500 bg-white border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <ChevronLeft className="w-4 h-4" />
             </button>
             
-            {/* Page numbers */}
-            {Array.from({ length: Math.min(5, pagination.total_pages) }, (_, i) => {
-              const pageNum = Math.max(1, pagination.current_page - 2) + i;
-              if (pageNum <= pagination.total_pages) {
-                return (
-                  <button
-                    key={pageNum}
-                    onClick={() => handlePageChange(pageNum)}
-                    className={`px-3 py-1 border rounded-md text-sm font-medium ${
-                      pageNum === pagination.current_page
-                        ? 'bg-blue-600 text-white border-blue-600'
-                        : 'border-gray-300 text-gray-700 hover:bg-gray-50'
-                    }`}
-                  >
-                    {pageNum}
-                  </button>
-                );
-              }
-              return null;
-            })}
+            <span className="text-sm text-gray-700">
+              {t('common.page')} {pagination.current_page} {t('common.of')} {pagination.total_pages}
+            </span>
             
             <button
               onClick={() => handlePageChange(pagination.current_page + 1)}
               disabled={!pagination.has_next}
-              className="px-3 py-1 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="relative inline-flex items-center px-2 py-2 text-sm font-medium text-gray-500 bg-white border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <ChevronRight className="w-4 h-4" />
             </button>
