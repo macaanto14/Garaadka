@@ -318,9 +318,42 @@ export const paymentsAPI = {
 
 // Audit API
 export const auditAPI = {
-  getAll: () => apiRequest('/audit', {}, false),
+  getAll: (params?: {
+    table_name?: string;
+    action_type?: string;
+    emp_id?: string;
+    start_date?: string;
+    end_date?: string;
+    limit?: number;
+    offset?: number;
+  }) => {
+    const searchParams = new URLSearchParams();
+    
+    if (params) {
+      Object.entries(params).forEach(([key, value]) => {
+        if (value !== undefined && value !== null) {
+          searchParams.append(key, value.toString());
+        }
+      });
+    }
+    
+    const queryString = searchParams.toString();
+    return apiRequest(`/audit${queryString ? `?${queryString}` : ''}`, {}, false);
+  },
   
   getStats: () => apiRequest('/audit/stats', {}, false),
+  
+  getRecordHistory: (table: string, id: string) => 
+    apiRequest(`/audit/record/${table}/${id}`, {}, false),
+  
+  getUserActivity: (username: string, limit?: number, offset?: number) => {
+    const params = new URLSearchParams();
+    if (limit) params.append('limit', limit.toString());
+    if (offset) params.append('offset', offset.toString());
+    
+    const queryString = params.toString();
+    return apiRequest(`/audit/user/${username}${queryString ? `?${queryString}` : ''}`, {}, false);
+  }
 };
 
 // Receipts API

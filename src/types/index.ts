@@ -32,10 +32,24 @@ export interface LaundryOrder {
 }
 
 export interface AuditLog {
-  auditId: number;
-  empId: string;
+  audit_id: number;
+  emp_id: string;
   date: string;
   status: string;
+  table_name?: string;
+  record_id?: string;
+  action_type?: string;
+  old_values?: string;
+  new_values?: string;
+}
+
+export interface AuditStats {
+  totalLogs: number;
+  todayLogs: number;
+  weekLogs: number;
+  actionStats: Array<{ action_type: string; count: number }>;
+  tableStats: Array<{ table_name: string; count: number }>;
+  userStats: Array<{ emp_id: string; count: number }>;
 }
 
 export interface DashboardStats {

@@ -1,4 +1,5 @@
 import { Request, Response, NextFunction } from 'express';
+import { AuditService } from '../services/auditService';
 
 // Extend Request interface to include user information
 declare global {
@@ -20,7 +21,6 @@ export interface AuditableRequest extends Request {
 // Middleware to extract user information for audit logging
 export const auditMiddleware = (req: AuditableRequest, res: Response, next: NextFunction) => {
   // Extract user information from session, token, or request
-  // This assumes you have user information available in the request
   if (req.user) {
     req.auditUser = req.user.username || req.user.fname || req.user.id || 'system';
   } else {
@@ -62,4 +62,34 @@ export const addAuditFieldsForDelete = (username: string) => {
     deleted_at: getCurrentTimestamp(),
     deleted_by: username
   };
+};
+
+// Automatic audit logging helper
+export const logAuditEvent = async (
+  req: AuditableRequest,
+  tableName: string,
+  recordId: string,
+  actionType: 'INSERT' | 'UPDATE' | 'DELETE' | 'SELECT',
+  status: string,
+  oldValues?: any,
+  newValues?: any
+) => {
+  try {
+    await AuditService.createAuditLog({
+      emp_id: req.auditUser || 'system',
+      date: getCurrentTimestamp(),
+      status,
+      table_name: tableName,
+      record_id: recordId.toString(),
+      action_type: actionType,
+      old_values: oldValues ? JSON.stringify(oldValues) : undefined,
+      new_values: newValues ? JSON.stringify(newValues) : undefined,
+      ip_address: req.ip,
+      user_agent: req.get('User-Agent'),
+      session_id: req.sessionID
+    });
+  } catch (error) {
+    console.error('Failed to log audit event:', error);
+    // Don't throw error to avoid breaking the main operation
+  }
 };

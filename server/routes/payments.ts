@@ -1,11 +1,12 @@
 import express from 'express';
 import { db } from '../index';
-import { RowDataPacket, ResultSetHeader } from 'mysql2';
 import { auditMiddleware, addAuditFieldsForInsert, addAuditFieldsForUpdate, addAuditFieldsForDelete, AuditableRequest } from '../middleware/auditMiddleware';
+import { verifyToken } from '../middleware/auth';
 
 const router = express.Router();
 
-// Apply audit middleware to all routes
+// Apply authentication middleware first, then audit middleware
+router.use(verifyToken);
 router.use(auditMiddleware);
 
 // Get all payments with audit information
