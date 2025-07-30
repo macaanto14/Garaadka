@@ -7,7 +7,8 @@ import {
   FileText, 
   Settings,
   LogOut,
-  Shirt
+  Shirt,
+  Database
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useLanguage } from '../../contexts/LanguageContext';
@@ -25,6 +26,7 @@ const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab }) => {
     { id: 'dashboard', label: t('nav.dashboard'), icon: Home },
     { id: 'orders', label: t('nav.orders'), icon: ShoppingBag },
     { id: 'customers', label: t('nav.customers'), icon: Users },
+    { id: 'register', label: t('nav.register'), icon: Database },
     { id: 'payments', label: t('nav.payments'), icon: CreditCard },
     { id: 'audit', label: t('nav.audit'), icon: FileText },
     { id: 'settings', label: t('nav.settings'), icon: Settings },

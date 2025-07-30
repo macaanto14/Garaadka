@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { LanguageProvider, useLanguage } from './contexts/LanguageContext';
 import { NotificationProvider } from './contexts/NotificationContext';
@@ -9,10 +9,54 @@ import Header from './components/Layout/Header';
 import Dashboard from './components/Dashboard/Dashboard';
 import OrderList from './components/Orders/OrderList';
 import CustomerList from './components/Customers/CustomerList';
+import RegisterSearch from './components/Register/RegisterSearch';
+import RegisterList from './components/Register/RegisterList';
 import PaymentManagement from './components/Payments/PaymentManagement';
 import AuditLogs from './components/Audit/AuditLogs';
 import NotificationContainer from './components/Common/NotificationContainer';
 import ToastListener from './components/Common/ToastListener';
+
+const RegisterManagement: React.FC = () => {
+  const [activeRegisterTab, setActiveRegisterTab] = useState<'search' | 'list'>('search');
+  const { t } = useLanguage();
+
+  return (
+    <div className="space-y-6">
+      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+        <div className="flex items-center justify-between mb-6">
+          <div>
+            <h2 className="text-2xl font-bold text-gray-900">{t('register.title')}</h2>
+            <p className="text-gray-600 mt-1">{t('register.subtitle')}</p>
+          </div>
+          <div className="flex space-x-2">
+            <button
+              onClick={() => setActiveRegisterTab('search')}
+              className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+                activeRegisterTab === 'search'
+                  ? 'bg-blue-600 text-white'
+                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+              }`}
+            >
+              {t('register.search').replace('...', '')}
+            </button>
+            <button
+              onClick={() => setActiveRegisterTab('list')}
+              className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+                activeRegisterTab === 'list'
+                  ? 'bg-blue-600 text-white'
+                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+              }`}
+            >
+              {t('register.viewAll')}
+            </button>
+          </div>
+        </div>
+        
+        {activeRegisterTab === 'search' ? <RegisterSearch /> : <RegisterList />}
+      </div>
+    </div>
+  );
+};
 
 const AppContent: React.FC = () => {
   const { user, isLoading } = useAuth();
@@ -42,6 +86,8 @@ const AppContent: React.FC = () => {
         return <OrderList />;
       case 'customers':
         return <CustomerList />;
+      case 'register':
+        return <RegisterManagement />;
       case 'payments':
         return <PaymentManagement />;
       case 'audit':
