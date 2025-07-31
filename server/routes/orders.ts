@@ -185,7 +185,7 @@ router.post('/', async (req: AuditableRequest, res) => {
 router.put('/:id', async (req: AuditableRequest, res) => {
   try {
     const { id } = req.params;
-    const { customer_id, due_date, delivery_date, status, payment_status, payment_method, notes } = req.body;
+    const { customer_id, due_date, delivery_date, status, payment_status, payment_method, notes, total_amount } = req.body;
 
     // Get old values for audit
     const [oldOrder] = await db.execute<RowDataPacket[]>(
@@ -204,17 +204,18 @@ router.put('/:id', async (req: AuditableRequest, res) => {
       status,
       payment_status,
       payment_method: payment_method || null,
-      notes: notes || null
+      notes: notes || null,
+      total_amount: total_amount || null
     }, req.auditUser || 'system');
 
     const [result] = await db.execute<ResultSetHeader>(
       `UPDATE orders SET 
        customer_id = ?, due_date = ?, delivery_date = ?, status = ?, 
-       payment_status = ?, payment_method = ?, notes = ?, updated_at = ?, updated_by = ?
+       payment_status = ?, payment_method = ?, notes = ?, total_amount = ?, updated_at = ?, updated_by = ?
        WHERE order_id = ? AND deleted_at IS NULL`,
       [updateData.customer_id, updateData.due_date, updateData.delivery_date, 
        updateData.status, updateData.payment_status, updateData.payment_method, 
-       updateData.notes, updateData.updated_at, updateData.updated_by, id]
+       updateData.notes, updateData.total_amount, updateData.updated_at, updateData.updated_by, id]
     );
 
     if (result.affectedRows === 0) {

@@ -22,10 +22,16 @@ const OrderDetails: React.FC<OrderDetailsProps> = ({ order, isOpen, onClose, onU
     setIsEditing(true);
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (editedOrder) {
-      onUpdate(editedOrder);
-      setIsEditing(false);
+      try {
+        await onUpdate(editedOrder);
+        setIsEditing(false);
+        onClose(); // Close the modal after successful update
+      } catch (error) {
+        // Error handling is done in the parent component
+        console.error('Error updating order:', error);
+      }
     }
   };
 

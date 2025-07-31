@@ -97,6 +97,7 @@ router.get('/', async (req: AuditableRequest, res) => {
 router.get('/:id', async (req: AuditableRequest, res) => {
   try {
     const { id } = req.params;
+    // Get payment by ID (around line 100-110)
     const [payments] = await db.execute<RowDataPacket[]>(
       `SELECT 
         p.*,
@@ -105,9 +106,7 @@ router.get('/:id', async (req: AuditableRequest, res) => {
         o.paid_amount as order_paid,
         o.payment_status as order_payment_status,
         c.customer_name,
-        c.phone_number,
-        c.email,
-        c.address
+        c.phone_number
        FROM payments p
        JOIN orders o ON p.order_id = o.order_id
        JOIN customers c ON o.customer_id = c.customer_id
@@ -232,6 +231,13 @@ router.post('/', async (req: AuditableRequest, res) => {
 
     const paymentId = paymentResult.insertId;
 
+    // Validate that payment was created successfully
+    if (!paymentId) {
+      throw new Error('Failed to create payment - no payment ID returned');
+    }
+
+    console.log('Payment created with ID:', paymentId); // Debug log
+
     // Get the generated receipt number
     const [newPayment] = await connection.execute<RowDataPacket[]>(
       'SELECT receipt_number, transaction_id FROM payments WHERE payment_id = ?',
@@ -305,16 +311,21 @@ router.post('/', async (req: AuditableRequest, res) => {
       receiptData = receiptInfo;
     }
 
-    // Log to audit table
-    await insertAuditLog(connection, {
-      emp_id: req.auditUser,
-      date: formatAuditDate(new Date()),
-      status: `Added Payment of $${paymentAmount}`,
-      action_type: 'CREATE',
-      table_name: 'payments',
-      record_id: paymentId,
-      new_values: JSON.stringify(paymentData)
-    });
+    // Log to audit table with validation
+    if (paymentId && paymentId > 0) {
+      await insertAuditLog(
+        connection,
+        req.auditUser || 'system',
+        `Added Payment of $${paymentAmount}`,
+        'payments',
+        paymentId,
+        'CREATE',
+        undefined,
+        paymentData
+      );
+    } else {
+      console.error('Cannot log audit: Invalid payment ID:', paymentId);
+    }
 
     await connection.commit();
 
@@ -441,17 +452,17 @@ router.put('/:id', async (req: AuditableRequest, res) => {
       );
     }
 
-    // Log to audit table
-    await insertAuditLog(connection, {
-      emp_id: req.auditUser,
-      date: formatAuditDate(new Date()),
-      status: 'Updated Payment',
-      action_type: 'UPDATE',
-      table_name: 'payments',
-      record_id: id,
-      old_values: JSON.stringify(oldPayment[0]),
-      new_values: JSON.stringify(updateData)
-    });
+    // Log to audit table (around line 445)
+    await insertAuditLog(
+      connection,
+      req.auditUser || 'system',
+      'Updated Payment',
+      'payments',
+      id,
+      'UPDATE',
+      oldPayment[0],
+      updateData
+    );
 
     await connection.commit();
 
@@ -534,16 +545,17 @@ router.delete('/:id', async (req: AuditableRequest, res) => {
       return res.status(404).json({ error: 'Payment not found' });
     }
 
-    // Log to audit table
-    await insertAuditLog(connection, {
-      emp_id: req.auditUser,
-      date: formatAuditDate(new Date()),
-      status: 'Deleted Payment',
-      action_type: 'DELETE',
-      table_name: 'payments',
-      record_id: id,
-      old_values: JSON.stringify(payment[0])
-    });
+    // Log to audit table (around line 538)
+    await insertAuditLog(
+      connection,
+      req.auditUser || 'system',
+      'Deleted Payment',
+      'payments',
+      id,
+      'DELETE',
+      payment[0],
+      undefined
+    );
 
     await connection.commit();
 
@@ -748,16 +760,17 @@ router.post('/:id/refund', async (req: AuditableRequest, res) => {
       [refundAmountNum, refund_reason, new Date(), req.auditUser, id]
     );
 
-    // Log to audit table
-    await insertAuditLog(connection, {
-      emp_id: req.auditUser,
-      date: formatAuditDate(new Date()),
-      status: `Processed refund of $${refundAmountNum}`,
-      action_type: 'CREATE',
-      table_name: 'payment_refunds',
-      record_id: refundResult.insertId,
-      new_values: JSON.stringify({ payment_id: id, refund_amount: refundAmountNum, refund_reason })
-    });
+    // Log to audit table (line ~752)
+    await insertAuditLog(
+      connection,
+      req.auditUser || 'system',
+      `Processed refund of $${refundAmountNum}`,
+      'payment_refunds',
+      refundResult.insertId,
+      'CREATE',
+      undefined,
+      { payment_id: id, refund_amount: refundAmountNum, refund_reason }
+    );
 
     await connection.commit();
 
@@ -788,8 +801,7 @@ router.post('/:id/receipt', async (req: AuditableRequest, res) => {
         o.order_number,
         o.total_amount as order_total,
         c.customer_name,
-        c.phone_number,
-        c.email
+        c.phone_number
        FROM payments p
        JOIN orders o ON p.order_id = o.order_id
        JOIN customers c ON o.customer_id = c.customer_id

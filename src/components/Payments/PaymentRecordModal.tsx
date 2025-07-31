@@ -25,7 +25,7 @@ interface CustomerOrder {
   name: string;
   mobnum: string;
   totalAmount: number;
-  payment_status: 'paid' | 'unpaid' | 'partial';  // Changed from payCheck to payment_status
+  payment_status: 'paid' | 'unpaid' | 'partial';
   status: string;
   descr: string;
   duedate: string;
@@ -88,28 +88,39 @@ const PaymentRecordModal: React.FC<PaymentRecordModalProps> = ({
       setSearchLoading(true);
       const response = await customersAPI.search.byPhone(phoneNumber);
       
-      // The API returns { customer: {...}, message: "..." } for phone search
       if (!response || !response.customer) {
         toast.error('No customer found with this phone number');
         setCustomerOrders([]);
         return;
       }
 
-      // Get orders for the found customer
       const customer = response.customer;
       try {
         const orders = await ordersAPI.getByCustomer(customer.customer_id.toString());
-        // Filter for unpaid and partial orders only - using payment_status instead of payCheck
-        const outstandingOrders = orders.filter((order: any) => 
-          order.payment_status === 'unpaid' || order.payment_status === 'partial'
-        );
+        
+        // Map API response to CustomerOrder interface and filter for outstanding orders
+        const mappedOrders: CustomerOrder[] = orders
+          .filter((order: any) => 
+            order.payment_status === 'unpaid' || order.payment_status === 'partial'
+          )
+          .map((order: any) => ({
+            itemNum: order.order_id,
+            name: order.customer_name,
+            mobnum: order.phone_number,
+            totalAmount: order.total_amount,
+            payment_status: order.payment_status,
+            status: order.status,
+            descr: order.items_summary || 'No description',
+            duedate: order.due_date || order.created_at,
+            paid_amount: order.paid_amount || 0
+          }));
 
-        if (outstandingOrders.length === 0) {
+        if (mappedOrders.length === 0) {
           toast.success('No outstanding payments found for this customer');
           setCustomerOrders([]);
         } else {
-          setCustomerOrders(outstandingOrders);
-          toast.success(`Found ${outstandingOrders.length} order(s) with outstanding payments`);
+          setCustomerOrders(mappedOrders);
+          toast.success(`Found ${mappedOrders.length} order(s) with outstanding payments`);
         }
       } catch (error) {
         console.error('Error fetching orders for customer:', customer.customer_id, error);
@@ -210,7 +221,7 @@ const PaymentRecordModal: React.FC<PaymentRecordModalProps> = ({
   const getPaymentStatusColor = (status: string) => {
     const colors = {
       paid: 'text-green-600 bg-green-100',
-      unpaid: 'text-red-600 bg-red-100',  // Changed from pending to unpaid
+      unpaid: 'text-red-600 bg-red-100',
       partial: 'text-yellow-600 bg-yellow-100'
     };
     return colors[status as keyof typeof colors] || 'text-gray-600 bg-gray-100';
@@ -273,6 +284,7 @@ const PaymentRecordModal: React.FC<PaymentRecordModalProps> = ({
                 <div className="space-y-3 max-h-60 overflow-y-auto">
                   {customerOrders.map((order) => {
                     const outstanding = calculateOutstandingAmount(order);
+                    const orderPaidAmount = order.paid_amount || 0;
                     return (
                       <div
                         key={order.itemNum}
@@ -283,7 +295,6 @@ const PaymentRecordModal: React.FC<PaymentRecordModalProps> = ({
                           <div className="flex-1">
                             <div className="flex items-center space-x-2 mb-2">
                               <span className="font-medium text-blue-600">#{order.itemNum}</span>
-                              // In the order display section, change order.payCheck to order.payment_status:
                               <span className={`px-2 py-1 rounded-full text-xs font-medium ${getPaymentStatusColor(order.payment_status)}`}>
                                 {order.payment_status}
                               </span>
@@ -294,7 +305,7 @@ const PaymentRecordModal: React.FC<PaymentRecordModalProps> = ({
                           </div>
                           <div className="text-right">
                             <p className="text-sm text-gray-600">Total: {formatCurrency(order.totalAmount)}</p>
-                            <p className="text-sm text-green-600">Paid: {formatCurrency(paidAmount)}</p>
+                            <p className="text-sm text-green-600">Paid: {formatCurrency(orderPaidAmount)}</p>
                             <p className="text-lg font-bold text-red-600">Outstanding: {formatCurrency(outstanding)}</p>
                           </div>
                         </div>

@@ -4,7 +4,7 @@
 
 [[redirects]]
   from = "/api/*"
-  to = "http://47.236.39.181:5000/api/:splat"
+  to = "https://einventory.et/api/:splat"
   status = 200
   force = true
   headers = {X-From = "Netlify"}

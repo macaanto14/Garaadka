@@ -47,16 +47,20 @@ const OrderList: React.FC = () => {
 
   // Convert API response to LaundryOrder format
   const convertAPIOrderToLaundryOrder = (apiOrder: OrderFromAPI): LaundryOrder => {
+    // Ensure total_amount is a valid number
+    const totalAmount = Number(apiOrder.total_amount) || 0;
+    const itemCount = Number(apiOrder.item_count) || 0;
+    
     return {
       itemNum: apiOrder.order_id,
       name: apiOrder.customer_name,
       descr: apiOrder.items_summary || 'No items description',
-      quan: apiOrder.item_count,
-      unitprice: apiOrder.item_count > 0 ? apiOrder.total_amount / apiOrder.item_count : 0,
-      amntword: `${apiOrder.total_amount} Ethiopian Birr`,
+      quan: itemCount,
+      unitprice: itemCount > 0 ? totalAmount / itemCount : 0,
+      amntword: `${totalAmount} Ethiopian Birr`,
       duedate: apiOrder.due_date || '',
       deliverdate: apiOrder.delivery_date || '',
-      totalAmount: apiOrder.total_amount,
+      totalAmount: totalAmount,
       mobnum: apiOrder.phone_number,
       payCheck: apiOrder.payment_status === 'unpaid' ? 'pending' : 
                 apiOrder.payment_status === 'partial' ? 'partial' : 'paid',
@@ -174,6 +178,9 @@ const OrderList: React.FC = () => {
       
       // Refresh orders list
       await fetchOrders();
+      
+      // Close the modal after successful update
+      setIsOrderDetailsOpen(false);
     } catch (error: any) {
       console.error('Error updating order:', error);
       notify.error('Failed to update order: ' + error.message);
@@ -287,7 +294,10 @@ const OrderList: React.FC = () => {
             <div>
               <p className="text-gray-600 text-sm">Total Revenue</p>
               <p className="text-2xl font-bold text-purple-600">
-                ETB {orders.reduce((sum, order) => sum + order.totalAmount, 0).toFixed(2)}
+                ETB {orders.reduce((sum, order) => {
+                  const amount = Number(order.totalAmount) || 0;
+                  return sum + amount;
+                }, 0).toFixed(2)}
               </p>
             </div>
             <DollarSign className="h-8 w-8 text-purple-600" />
@@ -430,10 +440,10 @@ const OrderList: React.FC = () => {
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="text-sm font-medium text-gray-900">
-                        ETB {order.totalAmount.toFixed(2)}
+                        ETB {(Number(order.totalAmount) || 0).toFixed(2)}
                       </div>
                       <div className="text-sm text-gray-500">
-                        @ ETB {order.unitprice.toFixed(2)}
+                        @ ETB {(Number(order.unitprice) || 0).toFixed(2)}
                       </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
