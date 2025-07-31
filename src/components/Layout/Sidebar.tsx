@@ -10,17 +10,12 @@ import {
   Shirt,
   Database
 } from 'lucide-react';
-import { useAuth } from '../../contexts/AuthContext';
-import { useLanguage } from '../../contexts/LanguageContext';
+import { useAuth, useTranslation, useUI } from '../../store';
 
-interface SidebarProps {
-  activeTab: string;
-  setActiveTab: (tab: string) => void;
-}
-
-const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab }) => {
+const Sidebar: React.FC = () => {
   const { logout, user } = useAuth();
-  const { t } = useLanguage();
+  const { t } = useTranslation();
+  const { activeTab, setActiveTab } = useUI();
 
   const menuItems = [
     { id: 'dashboard', label: t('nav.dashboard'), icon: Home },

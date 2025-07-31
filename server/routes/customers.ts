@@ -173,6 +173,19 @@ router.get('/:id', async (req: AuditableRequest, res) => {
   }
 });
 
+// Helper function to format date for audit table (matching audit.ts format)
+const formatAuditDate = (): string => {
+  return new Date().toLocaleString('en-US', {
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+    hour12: false
+  }).replace(',', ' /');
+};
+
 // POST create new customer with audit logging
 router.post('/', async (req: AuditableRequest, res) => {
   try {
@@ -241,7 +254,7 @@ router.post('/', async (req: AuditableRequest, res) => {
       customerData.updated_by
     ]);
     
-    // Log to audit table
+    // Log to audit table with correct date format
     const auditQuery = `
       INSERT INTO audit (emp_id, date, status, table_name, record_id, action_type, new_values)
       VALUES (?, ?, ?, ?, ?, ?, ?)
@@ -249,7 +262,7 @@ router.post('/', async (req: AuditableRequest, res) => {
     
     await db.execute(auditQuery, [
       req.auditUser,
-      new Date().toISOString().slice(0, 19).replace('T', ' '),
+      formatAuditDate(), // Use correct date format
       `Created Customer: ${customerData.customer_name}`,
       'customers',
       (result as any).insertId,
@@ -309,7 +322,7 @@ router.put('/:id', async (req: AuditableRequest, res) => {
       id
     ]);
     
-    // Log to audit table
+    // Log to audit table with correct date format
     const auditQuery = `
       INSERT INTO audit (emp_id, date, status, table_name, record_id, action_type, old_values, new_values)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?)
@@ -317,7 +330,7 @@ router.put('/:id', async (req: AuditableRequest, res) => {
     
     await db.execute(auditQuery, [
       req.auditUser,
-      new Date().toISOString().slice(0, 19).replace('T', ' '),
+      formatAuditDate(), // Use correct date format
       'Updated a Customer',
       'customers',
       id,
@@ -358,7 +371,7 @@ router.delete('/:id', async (req: AuditableRequest, res) => {
     
     await db.execute(query, [deleteData.deleted_at, deleteData.deleted_by, id]);
     
-    // Log to audit table
+    // Log to audit table with correct date format
     const auditQuery = `
       INSERT INTO audit (emp_id, date, status, table_name, record_id, action_type, old_values)
       VALUES (?, ?, ?, ?, ?, ?, ?)
@@ -366,7 +379,7 @@ router.delete('/:id', async (req: AuditableRequest, res) => {
     
     await db.execute(auditQuery, [
       req.auditUser,
-      new Date().toISOString().slice(0, 19).replace('T', ' '),
+      formatAuditDate(), // Use correct date format
       'Deleted a Customer',
       'customers',
       id,

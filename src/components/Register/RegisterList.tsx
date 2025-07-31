@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Package, User, Calendar, DollarSign, Filter, ChevronLeft, ChevronRight, Clock, CheckCircle, XCircle } from 'lucide-react';
-import { useLanguage } from '../../contexts/LanguageContext';
+import { useTranslation } from '../../store';
 import { useToast } from '../../hooks/useToast';
 import { registerAPI } from '../../services/api';
 
@@ -34,7 +34,7 @@ interface PaginationInfo {
 }
 
 const RegisterList: React.FC = () => {
-  const { t } = useLanguage();
+  const { t } = useTranslation();
   const { notify } = useToast();
   const [records, setRecords] = useState<RegisterRecord[]>([]);
   const [pagination, setPagination] = useState<PaginationInfo | null>(null);

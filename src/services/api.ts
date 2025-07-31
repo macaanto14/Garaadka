@@ -304,15 +304,31 @@ export const ordersAPI = {
 };
 
 // Payments API
+// Update the paymentsAPI section
 export const paymentsAPI = {
   getAll: () => apiRequest('/payments', {}, false),
   
-  getStats: () => apiRequest('/payments/stats', {}, false),
+  getById: (id: string) => apiRequest(`/payments/${id}`, {}, false),
+  
+  getByOrderId: (orderId: string) => apiRequest(`/payments/order/${orderId}`, {}, false),
+  
+  getStats: () => apiRequest('/payments/stats/dashboard', {}, false),
   
   create: (paymentData: any) =>
     apiRequest('/payments', {
       method: 'POST',
       body: JSON.stringify(paymentData),
+    }),
+    
+  update: (id: string, paymentData: any) =>
+    apiRequest(`/payments/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(paymentData),
+    }),
+    
+  delete: (id: string) =>
+    apiRequest(`/payments/${id}`, {
+      method: 'DELETE',
     }),
 };
 

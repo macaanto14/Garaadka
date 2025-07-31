@@ -9,7 +9,7 @@ import {
   Hash,
   ChevronRight
 } from 'lucide-react';
-import { useLanguage } from '../../contexts/LanguageContext';
+import { useTranslation } from '../../store';
 import SerialNumberSettings from './SerialNumberSettings';
 import BusinessSettings from './BusinessSettings';
 import NotificationSettings from './NotificationSettings';
@@ -28,7 +28,7 @@ type SettingsTab =
 
 const Settings: React.FC = () => {
   const [activeTab, setActiveTab] = useState<SettingsTab>('overview');
-  const { t } = useLanguage();
+  const { t } = useTranslation();
 
   const settingsMenuItems = [
     {

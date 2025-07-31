@@ -1,0 +1,111 @@
+# ========================================================================
+# GARAADKA LAUNDRY MANAGEMENT SYSTEM - DOCKER COMPOSE
+# ========================================================================
+# Complete development and production environment setup
+# ========================================================================
+
+version: '3.8'
+
+services:
+  # Application Service
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+    container_name: garaadka-app
+    ports:
+      - "5000:5000"
+      - "9229:9229"  # Debug port
+    environment:
+      - NODE_ENV=development
+      - DB_HOST=database
+      - DB_USER=garaadka_user
+      - DB_PASSWORD=garaadka_password
+      - DB_NAME=loundary
+      - DB_PORT=3306
+      - JWT_SECRET=your-development-jwt-secret
+      - BCRYPT_ROUNDS=10
+    volumes:
+      - .:/app
+      - /app/node_modules
+      - ./logs:/app/logs
+    depends_on:
+      database:
+        condition: service_healthy
+    networks:
+      - garaadka-network
+    restart: unless-stopped
+
+  # Database Service
+  database:
+    image: mariadb:10.11
+    container_name: garaadka-database
+    ports:
+      - "3306:3306"
+    environment:
+      - MYSQL_ROOT_PASSWORD=root_password
+      - MYSQL_DATABASE=loundary
+      - MYSQL_USER=garaadka_user
+      - MYSQL_PASSWORD=garaadka_password
+      - MYSQL_CHARACTER_SET_SERVER=utf8mb4
+      - MYSQL_COLLATION_SERVER=utf8mb4_unicode_ci
+    volumes:
+      - database_data:/var/lib/mysql
+      - ./cloud_migration.sql:/docker-entrypoint-initdb.d/01-schema.sql
+      - ./docker/mysql/conf.d:/etc/mysql/conf.d
+    healthcheck:
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      start_period: 10s
+      interval: 10s
+      timeout: 5s
+      retries: 3
+    networks:
+      - garaadka-network
+    restart: unless-stopped
+
+  # Redis Cache (Optional)
+  redis:
+    image: redis:7-alpine
+    container_name: garaadka-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+      - ./docker/redis/redis.conf:/usr/local/etc/redis/redis.conf
+    command: redis-server /usr/local/etc/redis/redis.conf
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+    networks:
+      - garaadka-network
+    restart: unless-stopped
+
+  # Nginx Reverse Proxy
+  nginx:
+    image: nginx:alpine
+    container_name: garaadka-nginx
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./docker/nginx/nginx.conf:/etc/nginx/nginx.conf
+      - ./docker/nginx/conf.d:/etc/nginx/conf.d
+      - ./docker/ssl:/etc/nginx/ssl
+      - ./logs/nginx:/var/log/nginx
+    depends_on:
+      - app
+    networks:
+      - garaadka-network
+    restart: unless-stopped
+
+volumes:
+  database_data:
+    driver: local
+  redis_data:
+    driver: local
+
+networks:
+  garaadka-network:
+    driver: bridge

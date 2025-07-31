@@ -1,9 +1,9 @@
 import React from 'react';
-import { useNotification } from '../../contexts/NotificationContext';
+import { useUI } from '../../store';
 import Notification from './Notification';
 
 const NotificationContainer: React.FC = () => {
-  const { notifications } = useNotification();
+  const { notifications } = useUI();
 
   if (notifications.length === 0) {
     return null;

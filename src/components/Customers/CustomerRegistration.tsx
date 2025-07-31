@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { X, User, Phone, Save, AlertCircle } from 'lucide-react';
 import { customersAPI } from '../../services/api';
-import { useLanguage } from '../../contexts/LanguageContext';
+import { useTranslation } from '../../store';
 
 interface CustomerRegistrationProps {
   isOpen: boolean;
@@ -25,7 +25,7 @@ const CustomerRegistration: React.FC<CustomerRegistrationProps> = ({
   onClose,
   onSuccess,
 }) => {
-  const { t } = useLanguage();
+  const { t } = useTranslation();
   const [formData, setFormData] = useState<CustomerFormData>({
     customer_name: '',
     phone_number: '',

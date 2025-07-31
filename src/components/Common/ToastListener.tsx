@@ -1,8 +1,8 @@
 import { useEffect } from 'react';
-import { useNotification } from '../../contexts/NotificationContext';
+import { useUI } from '../../store';
 
 const ToastListener: React.FC = () => {
-  const { addNotification } = useNotification();
+  const { addNotification } = useUI();
 
   useEffect(() => {
     const handleToastEvent = (event: CustomEvent) => {
@@ -13,7 +13,6 @@ const ToastListener: React.FC = () => {
         title,
         message,
         duration,
-        closable,
       });
     };
 

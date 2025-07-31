@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Search, Phone, Calendar, Package, DollarSign, User, FileText, Receipt, Truck, CheckCircle, Clock, AlertCircle } from 'lucide-react';
-import { useLanguage } from '../../contexts/LanguageContext';
+import { useTranslation } from '../../store';
 import { useToast } from '../../hooks/useToast';
 import { registerAPI } from '../../services/api';
 
@@ -30,7 +30,7 @@ interface RegisterRecord {
 }
 
 const RegisterSearch: React.FC = () => {
-  const { t } = useLanguage();
+  const { t } = useTranslation();
   const { notify } = useToast();
   const [searchPhone, setSearchPhone] = useState('');
   const [searchResults, setSearchResults] = useState<RegisterRecord[]>([]);

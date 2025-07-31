@@ -1,13 +1,22 @@
 import React, { useEffect, useState } from 'react';
 import { X, CheckCircle, XCircle, AlertTriangle, Info } from 'lucide-react';
-import { NotificationData, useNotification } from '../../contexts/NotificationContext';
+import { useUI } from '../../store';
+
+interface NotificationData {
+  id: string;
+  type: 'success' | 'error' | 'warning' | 'info';
+  title: string;
+  message: string;
+  duration?: number;
+  timestamp: number;
+}
 
 interface NotificationProps {
   notification: NotificationData;
 }
 
 const Notification: React.FC<NotificationProps> = ({ notification }) => {
-  const { removeNotification } = useNotification();
+  const { removeNotification } = useUI();
   const [isVisible, setIsVisible] = useState(false);
   const [isLeaving, setIsLeaving] = useState(false);
 
@@ -16,17 +25,6 @@ const Notification: React.FC<NotificationProps> = ({ notification }) => {
     const timer = setTimeout(() => setIsVisible(true), 10);
     return () => clearTimeout(timer);
   }, []);
-
-  // Auto-dismiss effect
-  useEffect(() => {
-    if (notification.duration && notification.duration > 0) {
-      const timer = setTimeout(() => {
-        handleClose();
-      }, notification.duration);
-
-      return () => clearTimeout(timer);
-    }
-  }, [notification.duration, notification.id]);
 
   const handleClose = () => {
     if (isLeaving) return; // Prevent multiple close calls
@@ -95,17 +93,15 @@ const Notification: React.FC<NotificationProps> = ({ notification }) => {
                 </p>
               )}
             </div>
-            {notification.closable && (
-              <div className="ml-3 sm:ml-4 flex-shrink-0 flex">
-                <button
-                  onClick={handleClose}
-                  className="inline-flex rounded-md text-white hover:text-gray-200 focus:outline-none focus:ring-2 focus:ring-white focus:ring-opacity-50 transition-colors duration-200 p-1"
-                  aria-label="Close notification"
-                >
-                  <X className="h-4 w-4 sm:h-5 sm:w-5" />
-                </button>
-              </div>
-            )}
+            <div className="ml-3 sm:ml-4 flex-shrink-0 flex">
+              <button
+                onClick={handleClose}
+                className="inline-flex rounded-md text-white hover:text-gray-200 focus:outline-none focus:ring-2 focus:ring-white focus:ring-opacity-50 transition-colors duration-200 p-1"
+                aria-label="Close notification"
+              >
+                <X className="h-4 w-4 sm:h-5 sm:w-5" />
+              </button>
+            </div>
           </div>
         </div>
       </div>

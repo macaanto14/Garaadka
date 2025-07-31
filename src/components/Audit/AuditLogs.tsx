@@ -1,11 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { Search, Filter, Calendar, User, Activity, Download, Eye, RefreshCw } from 'lucide-react';
-import { useLanguage } from '../../contexts/LanguageContext';
+import { useTranslation } from '../../store';
 import { AuditLog, AuditStats } from '../../types';
 import { auditAPI } from '../../services/api';
 
 const AuditLogs: React.FC = () => {
-  const { t } = useLanguage();
+  const { t } = useTranslation();
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedAction, setSelectedAction] = useState('all');
   const [dateRange, setDateRange] = useState('today');

@@ -1,0 +1,18 @@
+# ========================================================================
+# KUBERNETES SERVICE
+# ========================================================================
+apiVersion: v1
+kind: Service
+metadata:
+  name: garaadka-service
+  namespace: garaadka
+  labels:
+    app: garaadka-app
+spec:
+  selector:
+    app: garaadka-app
+  ports:
+  - protocol: TCP
+    port: 80
+    targetPort: 5000
+  type: ClusterIP

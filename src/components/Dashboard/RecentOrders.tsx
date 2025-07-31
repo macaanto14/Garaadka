@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Clock, Package, CheckCircle, AlertCircle, Eye, Edit } from 'lucide-react';
 import { ordersAPI } from '../../services/api';
-import { useLanguage } from '../../contexts/LanguageContext';
+import { useTranslation, useLanguage } from '../../store';
 import { formatCurrency } from '../../utils/currency';
 
 interface Order {
@@ -26,7 +26,7 @@ const RecentOrders: React.FC<RecentOrdersProps> = ({ limit = 10 }) => {
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const { language } = useLanguage();
+  const language = useLanguage();
 
   useEffect(() => {
     loadRecentOrders();

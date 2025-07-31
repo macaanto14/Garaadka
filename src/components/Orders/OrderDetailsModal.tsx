@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { X, User, Phone, Calendar, DollarSign, Package, Palette, Ruler } from 'lucide-react';
 import { LaundryOrder } from '../../types';
-import { useLanguage } from '../../contexts/LanguageContext';
+import { useTranslation } from '../../store';
 import ReceiptGenerator from './ReceiptGenerator';
 
 interface OrderDetailsModalProps {
@@ -11,7 +11,7 @@ interface OrderDetailsModalProps {
 }
 
 const OrderDetailsModal: React.FC<OrderDetailsModalProps> = ({ isOpen, onClose, order }) => {
-  const { t } = useLanguage();
+  const { t } = useTranslation();
   const [showReceipt, setShowReceipt] = useState(false);
 
   if (!isOpen) return null;
@@ -208,24 +208,61 @@ const OrderDetailsModal: React.FC<OrderDetailsModalProps> = ({ isOpen, onClose, 
             </div>
           </div>
 
+          // Add these imports
+          import PaymentRecordModal from '../Payments/PaymentRecordModal';
+          
+          // Add these state variables
+          const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
+          
+          // Add this function
+          const handleRecordPayment = () => {
+            setIsPaymentModalOpen(true);
+          };
+          
+          // Add this function
+          const handlePaymentRecorded = () => {
+            setIsPaymentModalOpen(false);
+            // Refresh order data or call parent update function
+            onUpdate?.(order);
+          };
+          
+          // Update the actions section (around line 210)
           {/* Actions */}
           <div className="flex justify-end space-x-4 pt-6 border-t border-gray-200">
+            {(order.payCheck === 'pending' || order.payCheck === 'partial') && (
+              <button
+                onClick={handleRecordPayment}
+                className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors duration-200 flex items-center space-x-2"
+              >
+                <DollarSign className="h-4 w-4" />
+                <span>Record Payment</span>
+              </button>
+            )}
             <button
               onClick={onClose}
-              className="px-6 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors duration-200"
+              className="bg-gray-600 text-white px-4 py-2 rounded-lg hover:bg-gray-700 transition-colors duration-200"
             >
               Close
             </button>
-            <button className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors duration-200">
-              Edit Order
-            </button>
-            <button 
-              onClick={handlePrintReceipt}
-              className="px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors duration-200"
-            >
-              Print Receipt
-            </button>
           </div>
+          
+          // Add the PaymentRecordModal at the end
+          {/* Payment Record Modal */}
+          <PaymentRecordModal
+            isOpen={isPaymentModalOpen}
+            onClose={() => setIsPaymentModalOpen(false)}
+            orderData={order}
+            onPaymentRecorded={handlePaymentRecorded}
+          />
+          <button className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors duration-200">
+            Edit Order
+          </button>
+          <button 
+            onClick={handlePrintReceipt}
+            className="px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors duration-200"
+          >
+            Print Receipt
+          </button>
         </div>
       </div>
     </div>

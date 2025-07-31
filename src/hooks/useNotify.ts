@@ -1,14 +1,16 @@
-import { useNotification, NotificationType } from '../contexts/NotificationContext';
+import { useUI } from '../store';
+
+export type NotificationType = 'success' | 'error' | 'warning' | 'info';
 
 export const useNotify = () => {
-  const { addNotification } = useNotification();
+  const { addNotification } = useUI();
 
   const notify = {
     success: (title: string, message?: string, duration?: number) => {
       addNotification({
         type: 'success' as NotificationType,
         title,
-        message,
+        message: message || '',
         duration,
       });
     },
@@ -17,7 +19,7 @@ export const useNotify = () => {
       addNotification({
         type: 'error' as NotificationType,
         title,
-        message,
+        message: message || '',
         duration,
       });
     },
@@ -26,7 +28,7 @@ export const useNotify = () => {
       addNotification({
         type: 'warning' as NotificationType,
         title,
-        message,
+        message: message || '',
         duration,
       });
     },
@@ -35,7 +37,7 @@ export const useNotify = () => {
       addNotification({
         type: 'info' as NotificationType,
         title,
-        message,
+        message: message || '',
         duration,
       });
     },
@@ -97,3 +99,5 @@ export const useNotify = () => {
 
   return notify;
 };
+
+export { useNotify as useToast };

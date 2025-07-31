@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
-import { useAuth } from '../../contexts/AuthContext';
+import { useAuth, useTranslation } from '../../store';
 import { Shirt, Eye, EyeOff, AlertCircle } from 'lucide-react';
-import { useLanguage } from '../../contexts/LanguageContext';
 
 const LoginForm: React.FC = () => {
   const [username, setUsername] = useState('');
@@ -10,7 +9,7 @@ const LoginForm: React.FC = () => {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const { login } = useAuth();
-  const { t } = useLanguage();
+  const { t } = useTranslation();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -36,7 +35,6 @@ const LoginForm: React.FC = () => {
           <div className="mx-auto bg-blue-600 p-3 rounded-full w-16 h-16 flex items-center justify-center mb-4">
             <Shirt className="h-8 w-8 text-white" />
           </div>
-          <h2 className="text-3xl font-bold text-gray-900">Welcome Back</h2>
           <h2 className="text-3xl font-bold text-gray-900">{t('login.title')}</h2>
           <p className="mt-2 text-gray-600">{t('login.subtitle')}</p>
         </div>

@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { X, Edit, Save, XCircle, User, Phone, MapPin, Calendar, Package, DollarSign, History } from 'lucide-react';
+import { useTranslation } from '../../store';
 import { useLanguage } from '../../contexts/LanguageContext';
 
 interface Customer {
@@ -23,7 +24,7 @@ interface CustomerDetailsProps {
 }
 
 const CustomerDetails: React.FC<CustomerDetailsProps> = ({ customer, isOpen, onClose, onUpdate }) => {
-  const { t } = useLanguage();
+  const { t } = useTranslation();
   const [isEditing, setIsEditing] = useState(false);
   const [editedCustomer, setEditedCustomer] = useState<Customer | null>(null);
 
