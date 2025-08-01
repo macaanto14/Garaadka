@@ -1,22 +1,6 @@
--- Create settings table for application configuration
-CREATE TABLE IF NOT EXISTS `app_settings` (
-  `setting_id` int(11) NOT NULL AUTO_INCREMENT,
-  `setting_key` varchar(100) NOT NULL UNIQUE,
-  `setting_value` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL CHECK (json_valid(`setting_value`)),
-  `setting_type` enum('string', 'number', 'boolean', 'json', 'object') DEFAULT 'string',
-  `category` varchar(50) NOT NULL,
-  `description` text DEFAULT NULL,
-  `is_system` boolean DEFAULT FALSE,
-  `created_at` timestamp DEFAULT CURRENT_TIMESTAMP,
-  `updated_at` timestamp DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-  `created_by` varchar(100) DEFAULT NULL,
-  `updated_by` varchar(100) DEFAULT NULL,
-  PRIMARY KEY (`setting_id`),
-  KEY `idx_setting_key` (`setting_key`),
-  KEY `idx_category` (`category`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+-- Clean INSERT statement for app_settings table
+-- This file contains only the INSERT statement without any inline comments
 
--- Insert default settings
 INSERT INTO `app_settings` (`setting_key`, `setting_value`, `setting_type`, `category`, `description`, `is_system`) VALUES
 ('serial_number_config', '{"prefix": "PKG", "randomDigits": 4, "separator": "", "format": "prefix+random"}', 'json', 'serial_numbers', 'Package serial number generation configuration', FALSE),
 ('order_id_config', '{"prefix": "ORD", "randomDigits": 6, "separator": "-", "format": "prefix+separator+random", "includeDate": false, "dateFormat": "YYYYMMDD"}', 'json', 'order_ids', 'Order ID generation configuration', FALSE),

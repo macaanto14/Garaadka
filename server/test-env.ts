@@ -54,7 +54,7 @@ if (process.env.JWT_SECRET === 'your-super-secret-jwt-key-change-this-in-product
 if (process.env.DB_PASSWORD === 'your_database_password') {
   console.log('   🚨 Please set a real database password!');
 }
-if (process.env.NODE_ENV === 'production' && process.env.JWT_SECRET?.length < 32) {
+if (process.env.NODE_ENV === 'production' && process.env.JWT_SECRET && process.env.JWT_SECRET.length < 32) {
   console.log('   🚨 JWT_SECRET should be at least 32 characters in production!');
 }
 

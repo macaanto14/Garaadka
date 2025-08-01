@@ -8,8 +8,7 @@ import Header from './components/Layout/Header';
 import InteractiveDashboard from './components/Dashboard/InteractiveDashboard';
 import OrderList from './components/Orders/OrderList';
 import CustomerList from './components/Customers/CustomerList';
-import RegisterSearch from './components/Register/RegisterSearch';
-import RegisterList from './components/Register/RegisterList';
+import RegisterPage from './components/Register/RegisterPage';
 import PaymentManagement from './components/Payments/PaymentManagement';
 import AuditLogs from './components/Audit/AuditLogs';
 import Settings from './components/Settings/Settings';
@@ -41,10 +40,8 @@ const AppContent: React.FC = () => {
         return <OrderList />;
       case 'customers':
         return <CustomerList />;
-      case 'register-search':
-        return <RegisterSearch />;
-      case 'register-list':
-        return <RegisterList />;
+      case 'register':
+        return <RegisterPage />;
       case 'payments':
         return <PaymentManagement />;
       case 'audit':

@@ -68,25 +68,23 @@ function transformRecord(record: any): RegisterResponse {
 // GET /api/register/stats - Get register statistics
 router.get('/stats', async (req: AuditableRequest, res) => {
   try {
+    const today = new Date().toISOString().split('T')[0]; // Get today's date in YYYY-MM-DD format
+    
     const query = `
       SELECT 
-        COUNT(*) as total_records,
-        COUNT(CASE WHEN payCheck = 'paid' THEN 1 END) as paid_orders,
-        COUNT(CASE WHEN payCheck = 'pending' THEN 1 END) as pending_orders,
-        COUNT(CASE WHEN payCheck = 'partial' THEN 1 END) as partial_payments,
-        COUNT(CASE WHEN deliverdate != 'Delivery Date' AND deliverdate != 'null' AND deliverdate != '' THEN 1 END) as delivered_orders,
-        COALESCE(SUM(totalAmount), 0) as total_revenue,
-        COALESCE(AVG(totalAmount), 0) as average_order_value,
-        COUNT(DISTINCT mobnum) as unique_customers,
-        COALESCE(SUM(CASE WHEN payCheck = 'paid' THEN totalAmount ELSE 0 END), 0) as total_paid_amount,
-        COALESCE(SUM(CASE WHEN payCheck = 'pending' THEN totalAmount ELSE 0 END), 0) as total_pending_amount
+        COUNT(*) as totalRecords,
+        COUNT(CASE WHEN payCheck = 'pending' THEN 1 END) as pendingDeliveries,
+        COUNT(CASE WHEN payCheck = 'paid' AND (deliverdate = 'Delivery Date' OR deliverdate = 'null' OR deliverdate = '') THEN 1 END) as readyForPickup,
+        COUNT(CASE WHEN deliverdate = ? THEN 1 END) as deliveredToday,
+        COALESCE(SUM(totalAmount), 0) as totalRevenue,
+        COALESCE(SUM(CASE WHEN payCheck = 'pending' OR payCheck = 'partial' THEN totalAmount ELSE 0 END), 0) as pendingPayments
       FROM register 
       WHERE NAME != 'HALKAN KU QOR MAGACA MACMIILKA' 
         AND NAME != 'Test'
         AND NAME NOT LIKE '[DELETED]%'
     `;
     
-    const [stats] = await db.execute<RowDataPacket[]>(query);
+    const [stats] = await db.execute<RowDataPacket[]>(query, [today]);
     res.json(stats[0]);
   } catch (error) {
     console.error('Error fetching register statistics:', error);

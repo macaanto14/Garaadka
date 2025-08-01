@@ -1,5 +1,6 @@
 import express from 'express';
 import { db } from '../index';
+import { RowDataPacket, ResultSetHeader } from 'mysql2';
 import { auditMiddleware, addAuditFieldsForInsert, addAuditFieldsForUpdate, addAuditFieldsForDelete, AuditableRequest } from '../middleware/auditMiddleware';
 import { verifyToken } from '../middleware/auth';
 

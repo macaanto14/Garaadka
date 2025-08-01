@@ -101,7 +101,7 @@ const InteractiveDashboard: React.FC = () => {
         paymentsAPI.getStats(),
         registerAPI.getStats(),
         auditAPI.getStats(),
-        ordersAPI.getAll({ limit: 10, sort_by: 'itemNum', sort_order: 'DESC' })
+        ordersAPI.getAll({ limit: 10, sort_by: 'order_id', sort_order: 'DESC' })
       ]);
 
       // Combine all stats
@@ -273,7 +273,8 @@ const InteractiveDashboard: React.FC = () => {
     }
   };
 
-  const getPaymentStatusColor = (status: string) => {
+  const getPaymentStatusColor = (status: string | null | undefined) => {
+    if (!status) return 'text-gray-600 bg-gray-100';
     switch (status.toLowerCase()) {
       case 'paid': return 'text-green-600 bg-green-100';
       case 'partial': return 'text-yellow-600 bg-yellow-100';
@@ -484,9 +485,9 @@ const InteractiveDashboard: React.FC = () => {
               >
                 <div className="flex items-start justify-between">
                   <div className="flex items-start space-x-3">
-                    {notification.type === 'overdue' && <AlertTriangle className="h-5 w-5 text-red-600 mt-0.5" />}
-                    {notification.type === 'delivery' && <Truck className="h-5 w-5 text-blue-600 mt-0.5" />}
-                    {notification.type === 'payment' && <DollarSign className="h-5 w-5 text-yellow-600 mt-0.5" />}
+                    {notification.type === 'overdue' && <AlertTriangle key="overdue-icon" className="h-5 w-5 text-red-600 mt-0.5" />}
+                    {notification.type === 'delivery' && <Truck key="delivery-icon" className="h-5 w-5 text-blue-600 mt-0.5" />}
+                    {notification.type === 'payment' && <DollarSign key="payment-icon" className="h-5 w-5 text-yellow-600 mt-0.5" />}
                     <div>
                       <h4 className="font-medium text-gray-900">{notification.title}</h4>
                       <p className="text-sm text-gray-600 mt-1">{notification.message}</p>

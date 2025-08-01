@@ -197,48 +197,36 @@ export class AuditService {
         [todayLogs],
         [weekLogs],
         [monthLogs],
-        actionStats,
-        tableStats,
-        userStats,
-        hourlyStats,
-        dailyStats
+        [actionStatsResult],
+        [tableStatsResult],
+        [userStatsResult],
+        [hourlyStatsResult],
+        [dailyStatsResult]
       ] = await Promise.all([
-        db.execute<RowDataPacket[]>('SELECT COUNT(*) as count FROM audit'),
-        db.execute<RowDataPacket[]>('SELECT COUNT(*) as count FROM audit WHERE DATE(date) = CURDATE()'),
-        db.execute<RowDataPacket[]>('SELECT COUNT(*) as count FROM audit WHERE date >= DATE_SUB(NOW(), INTERVAL 7 DAY)'),
-        db.execute<RowDataPacket[]>('SELECT COUNT(*) as count FROM audit WHERE date >= DATE_SUB(NOW(), INTERVAL 30 DAY)'),
+        db.execute<RowDataPacket[]>('SELECT COUNT(*) as total FROM audit'),
+        db.execute<RowDataPacket[]>('SELECT COUNT(*) as total FROM audit WHERE DATE(date) = CURDATE()'),
+        db.execute<RowDataPacket[]>('SELECT COUNT(*) as total FROM audit WHERE date >= DATE_SUB(NOW(), INTERVAL 7 DAY)'),
+        db.execute<RowDataPacket[]>('SELECT COUNT(*) as total FROM audit WHERE date >= DATE_SUB(NOW(), INTERVAL 30 DAY)'),
         db.execute<RowDataPacket[]>('SELECT action_type, COUNT(*) as count FROM audit GROUP BY action_type ORDER BY count DESC'),
         db.execute<RowDataPacket[]>('SELECT table_name, COUNT(*) as count FROM audit GROUP BY table_name ORDER BY count DESC'),
         db.execute<RowDataPacket[]>('SELECT emp_id, COUNT(*) as count FROM audit GROUP BY emp_id ORDER BY count DESC LIMIT 10'),
-        db.execute<RowDataPacket[]>(`
-          SELECT HOUR(date) as hour, COUNT(*) as count 
-          FROM audit 
-          WHERE DATE(date) = CURDATE() 
-          GROUP BY HOUR(date) 
-          ORDER BY hour
-        `),
-        db.execute<RowDataPacket[]>(`
-          SELECT DATE(date) as date, COUNT(*) as count 
-          FROM audit 
-          WHERE date >= DATE_SUB(NOW(), INTERVAL 7 DAY) 
-          GROUP BY DATE(date) 
-          ORDER BY date
-        `)
+        db.execute<RowDataPacket[]>('SELECT HOUR(date) as hour, COUNT(*) as count FROM audit WHERE date >= DATE_SUB(NOW(), INTERVAL 24 HOUR) GROUP BY HOUR(date) ORDER BY hour'),
+        db.execute<RowDataPacket[]>('SELECT DATE(date) as date, COUNT(*) as count FROM audit WHERE date >= DATE_SUB(NOW(), INTERVAL 30 DAY) GROUP BY DATE(date) ORDER BY date')
       ]);
 
       return {
-        totalLogs: totalLogs[0].count,
-        todayLogs: todayLogs[0].count,
-        weekLogs: weekLogs[0].count,
-        monthLogs: monthLogs[0].count,
-        actionStats: actionStats as Array<{ action_type: string; count: number }>,
-        tableStats: tableStats as Array<{ table_name: string; count: number }>,
-        userStats: userStats as Array<{ emp_id: string; count: number }>,
-        hourlyStats: hourlyStats as Array<{ hour: number; count: number }>,
-        dailyStats: dailyStats as Array<{ date: string; count: number }>
+        totalLogs: (totalLogs as any).total,
+        todayLogs: (todayLogs as any).total,
+        weekLogs: (weekLogs as any).total,
+        monthLogs: (monthLogs as any).total,
+        actionStats: actionStatsResult as Array<{ action_type: string; count: number }>,
+        tableStats: tableStatsResult as Array<{ table_name: string; count: number }>,
+        userStats: userStatsResult as Array<{ emp_id: string; count: number }>,
+        hourlyStats: hourlyStatsResult as Array<{ hour: number; count: number }>,
+        dailyStats: dailyStatsResult as Array<{ date: string; count: number }>
       };
     } catch (error) {
-      console.error('Error fetching audit statistics:', error);
+      console.error('Error fetching audit stats:', error);
       throw new Error('Failed to fetch audit statistics');
     }
   }

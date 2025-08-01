@@ -80,8 +80,11 @@ const OrderList: React.FC = () => {
       setError(null);
       const response = await ordersAPI.getAll();
       
+      // Extract orders array from response object
+      const ordersArray = response.orders || response;
+      
       // Convert API response to LaundryOrder format
-      const convertedOrders = response.map(convertAPIOrderToLaundryOrder);
+      const convertedOrders = ordersArray.map(convertAPIOrderToLaundryOrder);
       
       // Sort by creation date (latest first)
       convertedOrders.sort((a, b) => {
@@ -97,7 +100,7 @@ const OrderList: React.FC = () => {
       }
     } catch (error: any) {
       console.error('Error fetching orders:', error);
-      setError(error.message || 'Failed to fetch orders');
+      setError(error?.message || 'Failed to fetch orders');
       notify.error('Failed to fetch orders from database');
       setOrders([]); // Set empty array on error
     } finally {
