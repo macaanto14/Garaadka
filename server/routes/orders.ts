@@ -1,13 +1,23 @@
 import express from 'express';
-import { db } from '../index';
-import { auditMiddleware, addAuditFieldsForInsert, addAuditFieldsForUpdate, addAuditFieldsForDelete, AuditableRequest } from '../middleware/auditMiddleware';
-import { verifyToken } from '../middleware/auth';
+import { db } from '../index.js';
+import { RowDataPacket, ResultSetHeader } from 'mysql2';
+import { AuditableRequest } from '../middleware/auditMiddleware.js';
+import { addAuditFieldsForInsert, addAuditFieldsForUpdate, addAuditFieldsForDelete } from '../middleware/auditMiddleware.js';
 
 const router = express.Router();
 
-// Apply authentication middleware first, then audit middleware
-router.use(verifyToken);
-router.use(auditMiddleware);
+// Helper function to convert ISO date to MySQL datetime format
+const formatDateForMySQL = (isoDate: string): string | null => {
+  if (!isoDate) return null;
+  try {
+    const date = new Date(isoDate);
+    if (isNaN(date.getTime())) return null;
+    return date.toISOString().slice(0, 19).replace('T', ' ');
+  } catch (error) {
+    console.error('Error formatting date:', error);
+    return null;
+  }
+};
 
 // Get all orders with customer and items information
 router.get('/', async (req: AuditableRequest, res) => {
@@ -78,42 +88,45 @@ router.get('/:id', async (req: AuditableRequest, res) => {
   }
 });
 
-// Create new order with items
+// POST create order with items and audit logging
 router.post('/', async (req: AuditableRequest, res) => {
   const connection = await db.getConnection();
   
   try {
     await connection.beginTransaction();
 
-    const {
-      customer_id,
-      due_date,
-      delivery_date,
-      items,
-      payment_method,
-      notes
-    } = req.body;
+    const { customer_id, due_date, delivery_date, payment_method, notes, items } = req.body;
 
-    // Validate required fields
     if (!customer_id || !items || !Array.isArray(items) || items.length === 0) {
       return res.status(400).json({ 
-        error: 'Missing required fields: customer_id and items are required' 
+        error: 'Customer ID and items are required',
+        required_fields: ['customer_id', 'items'],
+        items_format: 'Array of objects with item_name, quantity, unit_price'
       });
     }
 
-    // Generate unique order number
-    const orderNumber = `ORD-${Date.now()}-${Math.random().toString(36).substr(2, 4).toUpperCase()}`;
+    // Generate order number
+    const [lastOrder] = await connection.execute<RowDataPacket[]>(
+      'SELECT order_number FROM orders ORDER BY order_id DESC LIMIT 1'
+    );
+    
+    let orderNumber = 'ORD-001';
+    if (lastOrder.length > 0 && lastOrder[0].order_number) {
+      const lastNumber = parseInt(lastOrder[0].order_number.split('-')[1]);
+      orderNumber = `ORD-${String(lastNumber + 1).padStart(3, '0')}`;
+    }
 
     // Calculate total amount
-    const totalAmount = items.reduce((sum: number, item: any) => 
+    const totalAmount = items.reduce(
+      (sum: number, item: any) => 
       sum + (item.quantity * item.unit_price), 0
     );
 
     const orderData = addAuditFieldsForInsert({
       order_number: orderNumber,
       customer_id,
-      due_date: due_date || null,
-      delivery_date: delivery_date || null,
+      due_date: formatDateForMySQL(due_date),
+      delivery_date: formatDateForMySQL(delivery_date),
       total_amount: totalAmount,
       payment_method: payment_method || null,
       notes: notes || null,
@@ -156,10 +169,11 @@ router.post('/', async (req: AuditableRequest, res) => {
       );
     }
 
-    // Log to audit table
+    // Log to audit table - ensure auditUser is not undefined
+    const auditUser = req.auditUser || 'system';
     await connection.execute(
       'INSERT INTO audit (emp_id, date, status, action_type, table_name, record_id, new_values) VALUES (?, ?, ?, ?, ?, ?, ?)',
-      [req.auditUser, new Date().toISOString().slice(0, 19).replace('T', ' '), 
+      [auditUser, new Date().toISOString().slice(0, 19).replace('T', ' '), 
        `Created Order ${orderNumber}`, 'CREATE', 'orders', orderId, JSON.stringify(orderData)]
     );
 
@@ -198,11 +212,11 @@ router.put('/:id', async (req: AuditableRequest, res) => {
     }
 
     const updateData = addAuditFieldsForUpdate({
-      customer_id,
-      due_date: due_date || null,
-      delivery_date: delivery_date || null,
-      status,
-      payment_status,
+      customer_id: customer_id || null,
+      due_date: formatDateForMySQL(due_date),
+      delivery_date: formatDateForMySQL(delivery_date),
+      status: status || null,
+      payment_status: payment_status || null,
       payment_method: payment_method || null,
       notes: notes || null,
       total_amount: total_amount || null
@@ -222,10 +236,11 @@ router.put('/:id', async (req: AuditableRequest, res) => {
       return res.status(404).json({ error: 'Order not found' });
     }
 
-    // Log to audit table
+    // Log to audit table - ensure auditUser is not undefined
+    const auditUser = req.auditUser || 'system';
     await db.execute(
       'INSERT INTO audit (emp_id, date, status, action_type, table_name, record_id, old_values, new_values) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
-      [req.auditUser, new Date().toISOString().slice(0, 19).replace('T', ' '), 
+      [auditUser, new Date().toISOString().slice(0, 19).replace('T', ' '), 
        'Updated Order', 'UPDATE', 'orders', id, JSON.stringify(oldOrder[0]), JSON.stringify(updateData)]
     );
 

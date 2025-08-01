@@ -181,6 +181,7 @@ const OrderList: React.FC = () => {
       
       // Close the modal after successful update
       setIsOrderDetailsOpen(false);
+      setSelectedOrder(null);
     } catch (error: any) {
       console.error('Error updating order:', error);
       notify.error('Failed to update order: ' + error.message);

@@ -27,10 +27,11 @@ const OrderDetails: React.FC<OrderDetailsProps> = ({ order, isOpen, onClose, onU
       try {
         await onUpdate(editedOrder);
         setIsEditing(false);
-        onClose(); // Close the modal after successful update
+        // Don't close modal here - let parent handle it
       } catch (error) {
-        // Error handling is done in the parent component
         console.error('Error updating order:', error);
+        // Show error notification
+        notify.error('Failed to update order. Please try again.');
       }
     }
   };

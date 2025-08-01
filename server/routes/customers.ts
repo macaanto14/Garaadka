@@ -139,6 +139,7 @@ router.get('/paginated', async (req: AuditableRequest, res) => {
 router.get('/:id', async (req: AuditableRequest, res) => {
   try {
     const { id } = req.params;
+    
     const query = `
       SELECT 
         c.customer_id,
@@ -160,9 +161,9 @@ router.get('/:id', async (req: AuditableRequest, res) => {
       GROUP BY c.customer_id
     `;
     
-    const [customers] = await db.execute(query, [id]);
+    const [customers] = await db.execute<RowDataPacket[]>(query, [id]);
     
-    if (Array.isArray(customers) && customers.length === 0) {
+    if (customers.length === 0) {
       return res.status(404).json({ error: 'Customer not found' });
     }
     
@@ -283,6 +284,7 @@ router.post('/', async (req: AuditableRequest, res) => {
 });
 
 // PUT update customer with audit logging
+// PUT update customer with audit logging
 router.put('/:id', async (req: AuditableRequest, res) => {
   try {
     const { id } = req.params;
@@ -298,11 +300,12 @@ router.put('/:id', async (req: AuditableRequest, res) => {
       return res.status(404).json({ error: 'Customer not found' });
     }
 
+    // Convert undefined values to null for database compatibility
     const updateData = addAuditFieldsForUpdate({
-      customer_name,
-      phone_number,
-      notes,
-      status
+      customer_name: customer_name || null,
+      phone_number: phone_number || null,
+      notes: notes || null,
+      status: status || null
     }, req.auditUser || 'system');
 
     const query = `
@@ -322,14 +325,15 @@ router.put('/:id', async (req: AuditableRequest, res) => {
       id
     ]);
     
-    // Log to audit table with correct date format
+    // Log to audit table with correct date format - ensure auditUser is not undefined
+    const auditUser = req.auditUser || 'system';
     const auditQuery = `
       INSERT INTO audit (emp_id, date, status, table_name, record_id, action_type, old_values, new_values)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?)
     `;
     
     await db.execute(auditQuery, [
-      req.auditUser,
+      auditUser,
       formatAuditDate(), // Use correct date format
       'Updated a Customer',
       'customers',
@@ -371,14 +375,15 @@ router.delete('/:id', async (req: AuditableRequest, res) => {
     
     await db.execute(query, [deleteData.deleted_at, deleteData.deleted_by, id]);
     
-    // Log to audit table with correct date format
+    // Log to audit table with correct date format - ensure auditUser is not undefined
+    const auditUser = req.auditUser || 'system';
     const auditQuery = `
       INSERT INTO audit (emp_id, date, status, table_name, record_id, action_type, old_values)
       VALUES (?, ?, ?, ?, ?, ?, ?)
     `;
     
     await db.execute(auditQuery, [
-      req.auditUser,
+      auditUser,
       formatAuditDate(), // Use correct date format
       'Deleted a Customer',
       'customers',
@@ -613,9 +618,9 @@ router.get('/search/phone/:phone', async (req: AuditableRequest, res) => {
       GROUP BY c.customer_id
     `;
     
-    const [customers] = await db.execute(query, [phone]);
+    const [customers] = await db.execute<RowDataPacket[]>(query, [phone]);
     
-    if (Array.isArray(customers) && customers.length === 0) {
+    if (customers.length === 0) {
       return res.status(404).json({ 
         error: 'No customer found with this phone number',
         phone_number: phone

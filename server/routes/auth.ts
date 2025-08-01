@@ -141,28 +141,37 @@ router.post('/login', async (req, res) => {
 });
 
 // Register new user with audit logging
+// Registration endpoint
 router.post('/register', async (req: AuditableRequest, res) => {
   try {
+    console.log('Registration request body:', req.body);
+    
     const { 
       personal_id, 
       fname, 
       username, 
-      password, 
-      city, 
-      phone_no, 
-      position, 
-      sec_que, 
-      answer 
+      password,
+      city,
+      phone_no,
+      position,
+      sec_que,
+      answer
     } = req.body;
 
     if (!personal_id || !fname || !username || !password) {
       return res.status(400).json({ error: 'Personal ID, name, username, and password are required' });
     }
 
+    // Improved validation for personal_id
+    const personalIdNumber = parseInt(personal_id);
+    if (isNaN(personalIdNumber) || personalIdNumber <= 0) {
+      return res.status(400).json({ error: 'Personal ID must be a valid positive number' });
+    }
+
     // Check if user already exists
     const [existingUsers] = await db.execute<RowDataPacket[]>(
       'SELECT * FROM `user accounts` WHERE USERNAME = ? OR `PERSONAL ID` = ?',
-      [username, personal_id]
+      [username, personal_id.toString()]
     );
 
     if (existingUsers.length > 0) {
@@ -172,42 +181,99 @@ router.post('/register', async (req: AuditableRequest, res) => {
     // Hash password using utility function
     const hashedPassword = await hashPassword(password);
 
-    const userData = addAuditFieldsForInsert({
-      personal_id,
-      fname,
-      username,
+    // Ensure auditUser is not undefined
+    const auditUser = req.auditUser || 'system';
+    
+    // Create timestamp
+    const currentTimestamp = new Date();
+    
+    // Prepare user data with all fields including optional ones
+    const userData = {
+      personal_id: personal_id.toString(),
+      fname: fname,
+      username: username,
       password: hashedPassword,
-      city,
-      phone_no,
-      position,
-      sec_que,
-      answer
-    }, req.auditUser || 'system');
+      city: city || null,
+      phone_no: phone_no || null,
+      position: position || null,
+      sec_que: sec_que || null,
+      answer: answer || null,
+      status: 'active',
+      created_at: currentTimestamp,
+      updated_at: currentTimestamp,
+      created_by: auditUser,
+      updated_by: auditUser
+    };
 
-    // Create user
+    // Debug log to see what we're sending
+    console.log('Complete user data being inserted:', {
+      ...userData,
+      password: '[HIDDEN]'
+    });
+
+    // Create user with all required fields - COMPLETE INSERT STATEMENT
     const [result] = await db.execute<ResultSetHeader>(
       `INSERT INTO \`user accounts\` 
-       (\`PERSONAL ID\`, fname, USERNAME, PASSWORD, CITY, PHONENO, POSITION, sec_que, answer, created_at, updated_at, created_by, updated_by) 
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      [userData.personal_id, userData.fname, userData.username, userData.password, 
-       userData.city, userData.phone_no, userData.position, userData.sec_que, userData.answer,
-       userData.created_at, userData.updated_at, userData.created_by, userData.updated_by]
+       (\`PERSONAL ID\`, fname, USERNAME, PASSWORD, CITY, PHONENO, POSITION, sec_que, answer, status, created_at, updated_at, created_by, updated_by) 
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        userData.personal_id,
+        userData.fname,
+        userData.username,
+        userData.password,
+        userData.city,
+        userData.phone_no,
+        userData.position,
+        userData.sec_que,
+        userData.answer,
+        userData.status,
+        userData.created_at,
+        userData.updated_at,
+        userData.created_by,
+        userData.updated_by
+      ]
     );
+
+    console.log('User created successfully with ID:', result.insertId);
 
     // Log to audit table
     await db.execute(
       'INSERT INTO audit (emp_id, date, status, action_type, table_name, record_id, new_values) VALUES (?, ?, ?, ?, ?, ?, ?)',
-      [req.auditUser, new Date().toISOString().slice(0, 19).replace('T', ' '), 
-       'Created User Account', 'CREATE', 'user accounts', personal_id, JSON.stringify({...userData, password: '[HIDDEN]'})]
+      [
+        auditUser, 
+        new Date().toISOString().slice(0, 19).replace('T', ' '), 
+        'Created User Account', 
+        'CREATE', 
+        'user accounts', 
+        userData.personal_id, 
+        JSON.stringify({...userData, password: '[HIDDEN]'})
+      ]
     );
 
     res.status(201).json({
       success: true,
-      message: 'User registered successfully'
+      message: 'User registered successfully',
+      user_id: userData.personal_id
     });
 
   } catch (error) {
     console.error('Error during registration:', error);
+    
+    // Type-safe error handling
+    const errorDetails: any = {};
+    if (error instanceof Error) {
+      errorDetails.message = error.message;
+    }
+    if (typeof error === 'object' && error !== null) {
+      const dbError = error as any;
+      if (dbError.code) errorDetails.code = dbError.code;
+      if (dbError.errno) errorDetails.errno = dbError.errno;
+      if (dbError.sql) errorDetails.sql = dbError.sql;
+      if (dbError.sqlState) errorDetails.sqlState = dbError.sqlState;
+      if (dbError.sqlMessage) errorDetails.sqlMessage = dbError.sqlMessage;
+    }
+    
+    console.error('Error details:', errorDetails);
     res.status(500).json({ error: 'Internal server error' });
   }
 });
@@ -228,11 +294,12 @@ router.put('/update-profile/:id', async (req: AuditableRequest, res) => {
       return res.status(404).json({ error: 'User not found' });
     }
 
+    // Convert undefined values to null for database compatibility
     const updateData = addAuditFieldsForUpdate({
-      fname,
-      city,
-      phone_no,
-      position
+      fname: fname || null,
+      city: city || null,
+      phone_no: phone_no || null,
+      position: position || null
     }, req.auditUser || 'system');
 
     const [result] = await db.execute<ResultSetHeader>(
@@ -250,7 +317,7 @@ router.put('/update-profile/:id', async (req: AuditableRequest, res) => {
     // Log to audit table
     await db.execute(
       'INSERT INTO audit (emp_id, date, status, action_type, table_name, record_id, old_values, new_values) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
-      [req.auditUser, new Date().toISOString().slice(0, 19).replace('T', ' '), 
+      [req.auditUser || 'system', new Date().toISOString().slice(0, 19).replace('T', ' '), 
        'Updated User Profile', 'UPDATE', 'user accounts', id, JSON.stringify(oldUser[0]), JSON.stringify(updateData)]
     );
 
@@ -262,6 +329,7 @@ router.put('/update-profile/:id', async (req: AuditableRequest, res) => {
   }
 });
 
+// Change password with audit logging
 // Change password with audit logging
 router.put('/change-password/:id', async (req: AuditableRequest, res) => {
   try {
@@ -288,10 +356,11 @@ router.put('/change-password/:id', async (req: AuditableRequest, res) => {
     const isValidPassword = await comparePassword(currentPassword, user.PASSWORD);
 
     if (!isValidPassword) {
-      // Log failed password change attempt
+      // Log failed password change attempt - ensure auditUser is not undefined
+      const auditUser = req.auditUser || 'system';
       await db.execute(
         'INSERT INTO audit (emp_id, date, status, action_type, table_name, record_id) VALUES (?, ?, ?, ?, ?, ?)',
-        [req.auditUser, new Date().toISOString().slice(0, 19).replace('T', ' '), 
+        [auditUser, new Date().toISOString().slice(0, 19).replace('T', ' '), 
          'Failed Password Change - Invalid Current Password', 'UPDATE', 'user accounts', id]
       );
       return res.status(401).json({ error: 'Current password is incorrect' });
@@ -310,10 +379,11 @@ router.put('/change-password/:id', async (req: AuditableRequest, res) => {
       [hashedNewPassword, updateData.updated_at, updateData.updated_by, id]
     );
 
-    // Log successful password change
+    // Log successful password change - ensure auditUser is not undefined
+    const auditUser = req.auditUser || 'system';
     await db.execute(
       'INSERT INTO audit (emp_id, date, status, action_type, table_name, record_id) VALUES (?, ?, ?, ?, ?, ?)',
-      [req.auditUser, new Date().toISOString().slice(0, 19).replace('T', ' '), 
+      [auditUser, new Date().toISOString().slice(0, 19).replace('T', ' '), 
        'Password Changed Successfully', 'UPDATE', 'user accounts', id]
     );
 

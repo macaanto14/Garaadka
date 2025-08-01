@@ -130,23 +130,46 @@ export const useData = () => {
 
 export const useSettings = () => {
   const language = useAppStore((state) => state.language);
+  const serialNumberConfig = useAppStore((state) => state.serialNumberConfig);
+  const orderIdConfig = useAppStore((state) => state.orderIdConfig);
   const businessSettings = useAppStore((state) => state.businessSettings);
+  const invoiceSettings = useAppStore((state) => state.invoiceSettings);
   const notificationSettings = useAppStore((state) => state.notificationSettings);
   const theme = useAppStore((state) => state.theme);
+  const isLoading = useAppStore((state) => state.isLoading);
+  const error = useAppStore((state) => state.error);
+  
   const setLanguage = useAppStore((state) => state.setLanguage);
+  const loadSettings = useAppStore((state) => state.loadSettings);
+  const updateSerialNumberConfig = useAppStore((state) => state.updateSerialNumberConfig);
+  const updateOrderIdConfig = useAppStore((state) => state.updateOrderIdConfig);
   const updateBusinessSettings = useAppStore((state) => state.updateBusinessSettings);
+  const updateInvoiceSettings = useAppStore((state) => state.updateInvoiceSettings);
   const updateNotificationSettings = useAppStore((state) => state.updateNotificationSettings);
   const updateTheme = useAppStore((state) => state.updateTheme);
+  const resetCategoryToDefaults = useAppStore((state) => state.resetCategoryToDefaults);
+  const clearError = useAppStore((state) => state.clearError);
 
   return {
     language,
+    serialNumberConfig,
+    orderIdConfig,
     businessSettings,
+    invoiceSettings,
     notificationSettings,
     theme,
+    isLoading,
+    error,
     setLanguage,
+    loadSettings,
+    updateSerialNumberConfig,
+    updateOrderIdConfig,
     updateBusinessSettings,
+    updateInvoiceSettings,
     updateNotificationSettings,
     updateTheme,
+    resetCategoryToDefaults,
+    clearError
   };
 };
 

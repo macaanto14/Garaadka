@@ -59,6 +59,7 @@ const LoginForm: React.FC = () => {
                 onChange={(e) => setUsername(e.target.value)}
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors duration-200"
                 placeholder={t('login.username')}
+                autoComplete="username"
                 required
               />
             </div>
@@ -75,6 +76,7 @@ const LoginForm: React.FC = () => {
                   onChange={(e) => setPassword(e.target.value)}
                   className="w-full px-3 py-2 pr-10 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors duration-200"
                   placeholder={t('login.password')}
+                  autoComplete="current-password"
                   required
                 />
                 <button

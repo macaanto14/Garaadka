@@ -1,14 +1,14 @@
 import { Request, Response, NextFunction } from 'express';
 import { AuditService } from '../services/auditService';
 
-// Extend Request interface to include user information
+// Unified user interface that matches auth middleware
 declare global {
   namespace Express {
     interface Request {
       user?: {
-        id?: string;
-        username?: string;
-        fname?: string;
+        id: number;
+        username: string;
+        position: string;
       };
     }
   }
@@ -22,7 +22,7 @@ export interface AuditableRequest extends Request {
 export const auditMiddleware = (req: AuditableRequest, res: Response, next: NextFunction) => {
   // Extract user information from session, token, or request
   if (req.user) {
-    req.auditUser = req.user.username || req.user.fname || req.user.id || 'system';
+    req.auditUser = req.user.username || req.user.id?.toString() || 'system';
   } else {
     // Fallback to extracting from headers or session
     req.auditUser = req.headers['x-user-id'] as string || 'anonymous';
@@ -86,7 +86,7 @@ export const logAuditEvent = async (
       new_values: newValues ? JSON.stringify(newValues) : undefined,
       ip_address: req.ip,
       user_agent: req.get('User-Agent'),
-      session_id: req.sessionID
+      session_id: req.ip || 'unknown' // Use IP as session identifier since sessionID is not available
     });
   } catch (error) {
     console.error('Failed to log audit event:', error);

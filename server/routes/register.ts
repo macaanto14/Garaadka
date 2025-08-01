@@ -1,8 +1,14 @@
 import express from 'express';
 import { db } from '../index.js';
 import { AuditableRequest } from '../middleware/auditMiddleware.js';
+import { RowDataPacket, ResultSetHeader } from 'mysql2';
 
 const router = express.Router();
+
+// Helper function to clean phone numbers
+function cleanPhoneNumber(phone: string): string {
+  return phone.replace(/[\s\-\(\)+]/g, '').replace(/^252/, '').replace(/^0+/, '');
+}
 
 // Interface for register record from database
 interface RegisterRecord {
@@ -80,7 +86,7 @@ router.get('/stats', async (req: AuditableRequest, res) => {
         AND NAME NOT LIKE '[DELETED]%'
     `;
     
-    const [stats] = await db.execute(query);
+    const [stats] = await db.execute<RowDataPacket[]>(query);
     res.json(stats[0]);
   } catch (error) {
     console.error('Error fetching register statistics:', error);
@@ -225,9 +231,9 @@ router.get('/:id', async (req: AuditableRequest, res) => {
         AND NAME NOT LIKE '[DELETED]%'
     `;
     
-    const [records] = await db.execute(query, [id]);
+    const [records] = await db.execute<RowDataPacket[]>(query, [id]);
     
-    if (Array.isArray(records) && records.length === 0) {
+    if (records.length === 0) {
       return res.status(404).json({ error: 'Register record not found' });
     }
     
@@ -289,7 +295,7 @@ router.post('/', async (req: AuditableRequest, res) => {
       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `;
     
-    const [result] = await db.execute(query, [
+    const [result] = await db.execute<ResultSetHeader>(query, [
       customer_name.trim(),
       description.trim(),
       quantity || 1,
@@ -304,10 +310,10 @@ router.post('/', async (req: AuditableRequest, res) => {
       size || ''
     ]);
 
-    const insertId = (result as any).insertId;
+    const insertId = result.insertId;
 
     // Fetch the created record
-    const [newRecord] = await db.execute(
+    const [newRecord] = await db.execute<RowDataPacket[]>(
       'SELECT * FROM register WHERE itemNum = ?',
       [insertId]
     );
@@ -334,12 +340,12 @@ router.put('/:id', async (req: AuditableRequest, res) => {
     }
 
     // Check if record exists
-    const [existingRecord] = await db.execute(
+    const [existingRecord] = await db.execute<RowDataPacket[]>(
       'SELECT itemNum FROM register WHERE itemNum = ? AND NAME NOT LIKE "[DELETED]%"',
       [id]
     );
     
-    if (Array.isArray(existingRecord) && existingRecord.length === 0) {
+    if (existingRecord.length === 0) {
       return res.status(404).json({ error: 'Register record not found' });
     }
 
@@ -433,7 +439,7 @@ router.put('/:id', async (req: AuditableRequest, res) => {
     await db.execute(query, updateValues);
 
     // Fetch updated record
-    const [updatedRecord] = await db.execute(
+    const [updatedRecord] = await db.execute<RowDataPacket[]>(
       'SELECT * FROM register WHERE itemNum = ?',
       [id]
     );
@@ -469,12 +475,12 @@ router.put('/:id/status', async (req: AuditableRequest, res) => {
     }
 
     // Check if record exists
-    const [existingRecord] = await db.execute(
+    const [existingRecord] = await db.execute<RowDataPacket[]>(
       'SELECT itemNum, NAME FROM register WHERE itemNum = ? AND NAME NOT LIKE "[DELETED]%"',
       [id]
     );
     
-    if (Array.isArray(existingRecord) && existingRecord.length === 0) {
+    if (existingRecord.length === 0) {
       return res.status(404).json({ error: 'Register record not found' });
     }
 
@@ -492,7 +498,7 @@ router.put('/:id/status', async (req: AuditableRequest, res) => {
     await db.execute(query, [deliverdate, id]);
 
     // Fetch updated record
-    const [updatedRecord] = await db.execute(
+    const [updatedRecord] = await db.execute<RowDataPacket[]>(
       'SELECT * FROM register WHERE itemNum = ?',
       [id]
     );
@@ -519,12 +525,12 @@ router.delete('/:id', async (req: AuditableRequest, res) => {
     }
 
     // Check if record exists
-    const [existingRecord] = await db.execute(
+    const [existingRecord] = await db.execute<RowDataPacket[]>(
       'SELECT itemNum, NAME FROM register WHERE itemNum = ? AND NAME NOT LIKE "[DELETED]%"',
       [id]
     );
     
-    if (Array.isArray(existingRecord) && existingRecord.length === 0) {
+    if (existingRecord.length === 0) {
       return res.status(404).json({ error: 'Register record not found' });
     }
 

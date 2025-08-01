@@ -2,7 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { X, Plus, Trash2, Save, Search, UserPlus } from 'lucide-react';
 import { customersAPI, ordersAPI } from '../../services/api';
 import { useToast } from '../../hooks/useToast';
-import { generateSerialNumber, SERIAL_CONFIGS } from '../../utils/serialNumber';
+import { generateSerialNumber } from '../../utils/serialNumber';
+import { useSettings } from '../../store';
 import InvoiceManager from './InvoiceManager';
 
 interface Customer {
@@ -54,12 +55,6 @@ const NewOrderForm: React.FC<NewOrderFormProps> = ({ isOpen, onClose, onSuccess 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState('');
   
-  // Remove serial number configuration states since they're now in Settings
-  // const [customPrefix, setCustomPrefix] = useState('PKG');
-  // const [customDigits, setCustomDigits] = useState(4);
-  // const [customSeparator, setCustomSeparator] = useState('');
-  // const [previewSerial, setPreviewSerial] = useState('PKG1234');
-  
   const [generatedOrderId, setGeneratedOrderId] = useState('');
   
   // Invoice Manager
@@ -67,35 +62,17 @@ const NewOrderForm: React.FC<NewOrderFormProps> = ({ isOpen, onClose, onSuccess 
   const [createdOrderData, setCreatedOrderData] = useState<any>(null);
 
   const { notify } = useToast();
+  const { serialNumberConfig } = useSettings();
 
   // Calculate subtotal and total
   const subtotal = items.reduce((sum, item) => sum + (item.quantity * item.unit_price), 0);
   const total = subtotal - discount;
 
-  // Initialize serial number configuration
-  useEffect(() => {
-    try {
-      const config = SERIAL_CONFIGS.PACKAGE;
-      setCustomPrefix(config.prefix);
-      setCustomDigits(config.randomDigits);
-      setCustomSeparator(config.separator || '');
-      setPreviewSerial(generateSerialNumber(config));
-    } catch (error) {
-      console.error('Error initializing serial number:', error);
-    }
-  }, []);
-
-  // Generate new order ID
+  // Generate new order ID using settings from backend
   const generateNewOrderId = () => {
     try {
-      const config = {
-        prefix: customPrefix,
-        randomDigits: customDigits,
-        separator: customSeparator
-      };
-      const newOrderId = generateSerialNumber(config);
+      const newOrderId = generateSerialNumber(serialNumberConfig);
       setGeneratedOrderId(newOrderId);
-      setPreviewSerial(newOrderId);
     } catch (error) {
       console.error('Error generating order ID:', error);
       notify.error('Error generating order ID');
@@ -107,7 +84,7 @@ const NewOrderForm: React.FC<NewOrderFormProps> = ({ isOpen, onClose, onSuccess 
     if (isOpen) {
       generateNewOrderId();
     }
-  }, [isOpen]);
+  }, [isOpen, serialNumberConfig]);
 
   // Load customers when modal opens
   useEffect(() => {
