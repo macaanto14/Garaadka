@@ -22,6 +22,32 @@ const formatDateForMySQL = (isoDate: string): string | null => {
 // Get all orders with customer and items information
 router.get('/', async (req: AuditableRequest, res) => {
   try {
+    const { 
+      limit = '50', 
+      offset = '0', 
+      sort_by = 'created_at', 
+      sort_order = 'DESC',
+      status 
+    } = req.query;
+
+    // Build WHERE clause
+    let whereClause = 'WHERE o.deleted_at IS NULL';
+    const queryParams: any[] = [];
+
+    if (status) {
+      whereClause += ' AND o.status = ?';
+      queryParams.push(status);
+    }
+
+    // Validate sort_by to prevent SQL injection
+    const allowedSortFields = ['order_id', 'itemNum', 'created_at', 'due_date', 'delivery_date', 'total_amount', 'status'];
+    const sortField = allowedSortFields.includes(sort_by as string) ? sort_by : 'created_at';
+    const sortDirection = sort_order === 'ASC' ? 'ASC' : 'DESC';
+
+    // Add LIMIT and OFFSET
+    const limitNum = Math.min(parseInt(limit as string) || 50, 100); // Max 100 records
+    const offsetNum = parseInt(offset as string) || 0;
+
     const [orders] = await db.execute<RowDataPacket[]>(
       `SELECT 
         o.*,
@@ -35,11 +61,31 @@ router.get('/', async (req: AuditableRequest, res) => {
        FROM orders o
        JOIN customers c ON o.customer_id = c.customer_id
        LEFT JOIN order_items oi ON o.order_id = oi.order_id
-       WHERE o.deleted_at IS NULL
+       ${whereClause}
        GROUP BY o.order_id
-       ORDER BY o.created_at DESC`
+       ORDER BY o.${sortField} ${sortDirection}
+       LIMIT ? OFFSET ?`,
+      [...queryParams, limitNum, offsetNum]
     );
-    res.json(orders);
+
+    // Get total count for pagination
+    const [countResult] = await db.execute<RowDataPacket[]>(
+      `SELECT COUNT(DISTINCT o.order_id) as total
+       FROM orders o
+       JOIN customers c ON o.customer_id = c.customer_id
+       ${whereClause}`,
+      queryParams
+    );
+
+    res.json({
+      orders,
+      pagination: {
+        total: countResult[0].total,
+        limit: limitNum,
+        offset: offsetNum,
+        hasMore: offsetNum + limitNum < countResult[0].total
+      }
+    });
   } catch (error) {
     console.error('Error fetching orders:', error);
     res.status(500).json({ error: 'Internal server error' });

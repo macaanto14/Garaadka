@@ -5,7 +5,7 @@ import { useActiveTab, useIsAuthenticated, useAuthLoading, useAppStore } from '.
 import LoginForm from './components/Auth/LoginForm';
 import Sidebar from './components/Layout/Sidebar';
 import Header from './components/Layout/Header';
-import Dashboard from './components/Dashboard/Dashboard';
+import InteractiveDashboard from './components/Dashboard/InteractiveDashboard';
 import OrderList from './components/Orders/OrderList';
 import CustomerList from './components/Customers/CustomerList';
 import RegisterSearch from './components/Register/RegisterSearch';
@@ -36,7 +36,7 @@ const AppContent: React.FC = () => {
   const renderContent = () => {
     switch (activeTab) {
       case 'dashboard':
-        return <Dashboard />;
+        return <InteractiveDashboard />;
       case 'orders':
         return <OrderList />;
       case 'customers':
@@ -52,7 +52,7 @@ const AppContent: React.FC = () => {
       case 'settings':
         return <Settings />;
       default:
-        return <Dashboard />;
+        return <InteractiveDashboard />;
     }
   };
 

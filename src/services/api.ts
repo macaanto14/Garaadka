@@ -282,7 +282,26 @@ export const customersAPI = {
 
 // Orders API
 export const ordersAPI = {
-  getAll: () => apiRequest('/orders', {}, false),
+  getAll: (params?: {
+    limit?: number;
+    offset?: number;
+    sort_by?: string;
+    sort_order?: 'ASC' | 'DESC';
+    status?: string;
+  }) => {
+    const searchParams = new URLSearchParams();
+    
+    if (params) {
+      Object.entries(params).forEach(([key, value]) => {
+        if (value !== undefined && value !== null) {
+          searchParams.append(key, value.toString());
+        }
+      });
+    }
+    
+    const queryString = searchParams.toString();
+    return apiRequest(`/orders${queryString ? `?${queryString}` : ''}`, {}, false);
+  },
   getById: (id: string) => apiRequest(`/orders/${id}`, {}, false),
   getByCustomer: (customerId: string) => apiRequest(`/orders/customer/${customerId}`, {}, false),
   create: (orderData: any) => apiRequest('/orders', {
@@ -504,7 +523,7 @@ export const registerAPI = {
     }),
   
   // Get register statistics
-  getStats: () => apiRequest('/register/stats/summary', {}, false),
+  getStats: () => apiRequest('/register/stats', {}, false),
 };
 
 // Export token management functions
