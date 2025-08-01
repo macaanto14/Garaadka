@@ -36,6 +36,8 @@ interface EnhancedAuditStats {
   total_logs: number;
   today_logs: number;
   weekly_logs: number;
+  active_users_today: number;
+  active_users_week: number;
   action_stats: Array<{ action_type: string; count: number }>;
   table_stats: Array<{ table_name: string; count: number }>;
   user_stats: Array<{ emp_id: string; count: number }>;
@@ -65,6 +67,11 @@ const AuditLogs: React.FC = () => {
   const [selectedLog, setSelectedLog] = useState<AuditLog | null>(null);
   const [showDetails, setShowDetails] = useState(false);
   const [activeTab, setActiveTab] = useState<'logs' | 'analytics' | 'users' | 'cleanup'>('logs');
+  
+  // Cleanup states
+  const [retentionDays, setRetentionDays] = useState(365);
+  const [cleanupLoading, setCleanupLoading] = useState(false);
+  const [cleanupResult, setCleanupResult] = useState<any>(null);
   
   // Filter states
   const [filters, setFilters] = useState({
@@ -337,6 +344,21 @@ const AuditLogs: React.FC = () => {
                 {auditStats?.user_stats?.length || 0}
               </p>
               <p className="text-xs text-gray-500 mt-1">Unique users</p>
+            </div>
+            <div className="bg-purple-100 p-3 rounded-full">
+              <Users className="h-6 w-6 text-purple-600" />
+            </div>
+          </div>
+        </div>
+
+        <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-gray-600 text-sm">Active Users Today</p>
+              <p className="text-2xl font-bold text-purple-600">
+                {auditStats?.active_users_today || 0}
+              </p>
+              <p className="text-xs text-gray-500 mt-1">Users active today</p>
             </div>
             <div className="bg-purple-100 p-3 rounded-full">
               <Users className="h-6 w-6 text-purple-600" />
@@ -722,19 +744,50 @@ const AuditLogs: React.FC = () => {
                       type="number"
                       min="1"
                       max="3650"
-                      defaultValue="365"
+                      value={retentionDays}
+                      onChange={(e) => setRetentionDays(parseInt(e.target.value) || 365)}
                       className="border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent w-32"
                     />
                     <p className="text-sm text-gray-500 mt-1">
                       Logs older than this many days will be deleted
                     </p>
                   </div>
-                  <button className="bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 transition-colors duration-200 flex items-center space-x-2">
-                    <Trash2 className="h-4 w-4" />
-                    <span>Clean Up Old Logs</span>
+                  
+                  <button 
+                    onClick={handleCleanup}
+                    disabled={cleanupLoading}
+                    className="bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 transition-colors duration-200 flex items-center space-x-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    <Trash2 className={`h-4 w-4 ${cleanupLoading ? 'animate-spin' : ''}`} />
+                    <span>{cleanupLoading ? 'Cleaning up...' : 'Clean Up Old Logs'}</span>
                   </button>
                 </div>
               </div>
+
+              {/* Current Statistics */}
+              {auditStats && (
+                <div className="bg-gray-50 rounded-lg p-4">
+                  <h4 className="font-medium text-gray-900 mb-3">Current Audit Log Statistics</h4>
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    <div className="text-center">
+                      <p className="text-2xl font-bold text-blue-600">{auditStats.total_logs}</p>
+                      <p className="text-sm text-gray-600">Total Logs</p>
+                    </div>
+                    <div className="text-center">
+                      <p className="text-2xl font-bold text-green-600">{auditStats.today_logs}</p>
+                      <p className="text-sm text-gray-600">Today's Logs</p>
+                    </div>
+                    <div className="text-center">
+                      <p className="text-2xl font-bold text-purple-600">{auditStats.weekly_logs}</p>
+                      <p className="text-sm text-gray-600">This Week</p>
+                    </div>
+                    <div className="text-center">
+                      <p className="text-2xl font-bold text-orange-600">{auditStats.user_stats?.length || 0}</p>
+                      <p className="text-sm text-gray-600">Active Users</p>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
           )}
         </div>
@@ -815,3 +868,28 @@ const AuditLogs: React.FC = () => {
 };
 
 export default AuditLogs;
+
+// Remove this entire function block as it's now moved inside the component
+const handleCleanup = async () => {
+  if (!confirm(`Are you sure you want to delete audit logs older than ${retentionDays} days? This action cannot be undone.`)) {
+    return;
+  }
+
+  try {
+    setCleanupLoading(true);
+    setError(null);
+    setCleanupResult(null);
+
+    const result = await auditAPI.cleanup({ retention_days: retentionDays });
+    setCleanupResult(result);
+    
+    // Refresh audit data after cleanup
+    await fetchAuditData();
+    
+  } catch (err: any) {
+    console.error('Error during cleanup:', err);
+    setError(err.message || 'Failed to cleanup audit logs');
+  } finally {
+    setCleanupLoading(false);
+  }
+};

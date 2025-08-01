@@ -5,6 +5,7 @@ import { formatCurrency } from '../../utils/currency';
 import { paymentsAPI, ordersAPI } from '../../services/api';
 import { useToast } from '../../hooks/useToast';
 import PaymentRecordModal from './PaymentRecordModal';
+import PaymentDetailsModal from './PaymentDetailsModal';
 
 interface Payment {
   payment_id: number;
@@ -41,6 +42,8 @@ const PaymentManagement: React.FC = () => {
   const [stats, setStats] = useState<PaymentStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [isRecordModalOpen, setIsRecordModalOpen] = useState(false);
+  const [isDetailsModalOpen, setIsDetailsModalOpen] = useState(false);
+  const [selectedPayment, setSelectedPayment] = useState<Payment | null>(null);
 
   useEffect(() => {
     loadPayments();
@@ -114,6 +117,16 @@ const PaymentManagement: React.FC = () => {
   const handlePaymentRecorded = () => {
     loadPayments();
     loadStats();
+  };
+
+  const handleViewPayment = (payment: Payment) => {
+    setSelectedPayment(payment);
+    setIsDetailsModalOpen(true);
+  };
+
+  const handleCloseDetailsModal = () => {
+    setIsDetailsModalOpen(false);
+    setSelectedPayment(null);
   };
 
   if (loading) {
@@ -268,6 +281,7 @@ const PaymentManagement: React.FC = () => {
                   <td className="py-4 px-4">
                     <div className="flex space-x-2">
                       <button
+                        onClick={() => handleViewPayment(payment)}
                         className="text-blue-600 hover:text-blue-800 transition-colors duration-200"
                         title="View Details"
                       >
@@ -287,6 +301,13 @@ const PaymentManagement: React.FC = () => {
         isOpen={isRecordModalOpen}
         onClose={() => setIsRecordModalOpen(false)}
         onPaymentRecorded={handlePaymentRecorded}
+      />
+
+      {/* Payment Details Modal */}
+      <PaymentDetailsModal
+        isOpen={isDetailsModalOpen}
+        onClose={handleCloseDetailsModal}
+        payment={selectedPayment}
       />
     </div>
   );

@@ -164,7 +164,7 @@ router.get('/', async (req: AuditableRequest, res) => {
   }
 });
 
-// 2. GET /api/audit/stats - Get comprehensive statistics
+// 2. GET /api/audit/stats - Get comprehensive statistics (IMPROVED)
 router.get('/stats', async (req: AuditableRequest, res) => {
   try {
     // Total logs
@@ -172,20 +172,28 @@ router.get('/stats', async (req: AuditableRequest, res) => {
       'SELECT COUNT(*) as count FROM audit'
     );
 
-    // Today's logs (using date field format)
-    const today = new Date().toLocaleDateString('en-US', { 
-      month: 'short', 
-      day: 'numeric', 
-      year: 'numeric' 
-    });
+    // Today's logs - using proper date comparison
     const [todayLogs] = await db.execute<RowDataPacket[]>(
-      'SELECT COUNT(*) as count FROM audit WHERE date LIKE ?',
-      [`%${today}%`]
+      `SELECT COUNT(*) as count FROM audit 
+       WHERE DATE(STR_TO_DATE(date, '%H:%i:%s / %b %d, %Y')) = CURDATE()`
     );
 
-    // Weekly logs (last 7 days)
+    // Weekly logs (last 7 days) - improved calculation
     const [weekLogs] = await db.execute<RowDataPacket[]>(
-      'SELECT COUNT(*) as count FROM audit WHERE STR_TO_DATE(date, "%H:%i:%s / %b %d, %Y") >= DATE_SUB(NOW(), INTERVAL 7 DAY)'
+      `SELECT COUNT(*) as count FROM audit 
+       WHERE STR_TO_DATE(date, '%H:%i:%s / %b %d, %Y') >= DATE_SUB(NOW(), INTERVAL 7 DAY)`
+    );
+
+    // Active users today (not all-time users)
+    const [activeUsersToday] = await db.execute<RowDataPacket[]>(
+      `SELECT COUNT(DISTINCT emp_id) as count FROM audit 
+       WHERE DATE(STR_TO_DATE(date, '%H:%i:%s / %b %d, %Y')) = CURDATE()`
+    );
+
+    // Active users this week
+    const [activeUsersWeek] = await db.execute<RowDataPacket[]>(
+      `SELECT COUNT(DISTINCT emp_id) as count FROM audit 
+       WHERE STR_TO_DATE(date, '%H:%i:%s / %b %d, %Y') >= DATE_SUB(NOW(), INTERVAL 7 DAY)`
     );
 
     // Action statistics
@@ -198,7 +206,7 @@ router.get('/stats', async (req: AuditableRequest, res) => {
       'SELECT table_name, COUNT(*) as count FROM audit WHERE table_name IS NOT NULL GROUP BY table_name ORDER BY count DESC'
     );
 
-    // User statistics
+    // User statistics (all-time activity)
     const [userStats] = await db.execute<RowDataPacket[]>(
       'SELECT emp_id, COUNT(*) as count FROM audit GROUP BY emp_id ORDER BY count DESC LIMIT 10'
     );
@@ -207,6 +215,8 @@ router.get('/stats', async (req: AuditableRequest, res) => {
       total_logs: totalLogs[0].count,
       today_logs: todayLogs[0].count,
       weekly_logs: weekLogs[0].count,
+      active_users_today: activeUsersToday[0].count,
+      active_users_week: activeUsersWeek[0].count,
       action_stats: actionStats,
       table_stats: tableStats,
       user_stats: userStats
