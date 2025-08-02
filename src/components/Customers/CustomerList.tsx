@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Search, Plus, Phone, Mail, MapPin, Eye, ChevronLeft, ChevronRight, Users, Filter, X } from 'lucide-react';
-import { useLanguage } from '../../contexts/LanguageContext';
+import { useTranslation } from '../../store';
 import { customersAPI } from '../../services/api';
 import CustomerRegistration from './CustomerRegistration';
 import CustomerDetails from './CustomerDetails';
@@ -29,7 +29,7 @@ interface PaginatedResponse {
 }
 
 const CustomerList: React.FC = () => {
-  const { t } = useLanguage();
+  const { t } = useTranslation();
   const [searchTerm, setSearchTerm] = useState('');
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [loading, setLoading] = useState(true);

@@ -1,0 +1,14 @@
+# ========================================================================
+# KUBERNETES CONFIGMAP
+# ========================================================================
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: garaadka-config
+  namespace: garaadka
+data:
+  NODE_ENV: "production"
+  DB_PORT: "3306"
+  DB_NAME: "loundary"
+  BCRYPT_ROUNDS: "12"
+  LOG_LEVEL: "info"

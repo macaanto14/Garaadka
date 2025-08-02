@@ -1,0 +1,10 @@
+# ========================================================================
+# KUBERNETES NAMESPACE
+# ========================================================================
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: garaadka
+  labels:
+    name: garaadka
+    environment: production

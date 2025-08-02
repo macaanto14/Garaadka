@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { X, User, Phone, Calendar, DollarSign, Package, Palette, Ruler } from 'lucide-react';
 import { LaundryOrder } from '../../types';
-import { useLanguage } from '../../contexts/LanguageContext';
+import { useTranslation } from '../../store';
 import ReceiptGenerator from './ReceiptGenerator';
 
 interface OrderDetailsModalProps {
@@ -11,7 +11,7 @@ interface OrderDetailsModalProps {
 }
 
 const OrderDetailsModal: React.FC<OrderDetailsModalProps> = ({ isOpen, onClose, order }) => {
-  const { t } = useLanguage();
+  const { t } = useTranslation();
   const [showReceipt, setShowReceipt] = useState(false);
 
   if (!isOpen) return null;
@@ -210,12 +210,6 @@ const OrderDetailsModal: React.FC<OrderDetailsModalProps> = ({ isOpen, onClose, 
 
           {/* Actions */}
           <div className="flex justify-end space-x-4 pt-6 border-t border-gray-200">
-            <button
-              onClick={onClose}
-              className="px-6 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors duration-200"
-            >
-              Close
-            </button>
             <button className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors duration-200">
               Edit Order
             </button>

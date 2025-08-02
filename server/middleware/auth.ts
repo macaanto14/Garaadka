@@ -1,32 +1,24 @@
-import jwt from 'jsonwebtoken';
+import jwt, { SignOptions } from 'jsonwebtoken';
 import { Request, Response, NextFunction } from 'express';
+import { StringValue } from 'ms';
 
-// Extend Request interface to include user
-declare global {
-  namespace Express {
-    interface Request {
-      user?: {
-        id: number;
-        username: string;
-        position: string;
-      };
-    }
-  }
-}
+// User interface is now declared in auditMiddleware.ts to avoid conflicts
 
 const JWT_SECRET = process.env.JWT_SECRET || 'your-super-secret-jwt-key-change-this-in-production';
 const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || '24h';
 
 export const generateToken = (user: any): string => {
-  return jwt.sign(
-    {
-      id: user['PERSONAL ID'],
-      username: user.USERNAME,
-      position: user.POSITION,
-    },
-    JWT_SECRET,
-    { expiresIn: JWT_EXPIRES_IN }
-  );
+  const payload = {
+    id: user['PERSONAL ID'],
+    username: user.USERNAME,
+    position: user.POSITION,
+  };
+  
+  const options: SignOptions = {
+    expiresIn: JWT_EXPIRES_IN as StringValue
+  };
+  
+  return jwt.sign(payload, JWT_SECRET, options);
 };
 
 export const verifyToken = (req: Request, res: Response, next: NextFunction) => {

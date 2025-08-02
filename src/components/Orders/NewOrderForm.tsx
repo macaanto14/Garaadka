@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { X, Plus, Trash2, Save, Search, UserPlus, Hash, Package } from 'lucide-react';
+import { X, Plus, Trash2, Save, Search, UserPlus } from 'lucide-react';
 import { customersAPI, ordersAPI } from '../../services/api';
-import { useNotify } from '../../hooks/useNotify';
-import { generateSerialNumber, SERIAL_CONFIGS } from '../../utils/serialNumber';
+import { useToast } from '../../hooks/useToast';
+import { generateSerialNumber } from '../../utils/serialNumber';
+import { useSettings } from '../../store';
 import InvoiceManager from './InvoiceManager';
 
 interface Customer {
@@ -54,47 +55,24 @@ const NewOrderForm: React.FC<NewOrderFormProps> = ({ isOpen, onClose, onSuccess 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState('');
   
-  // Serial number configuration
-  const [customPrefix, setCustomPrefix] = useState('PKG');
-  const [customDigits, setCustomDigits] = useState(4);
-  const [customSeparator, setCustomSeparator] = useState('');
-  const [previewSerial, setPreviewSerial] = useState('PKG1234');
   const [generatedOrderId, setGeneratedOrderId] = useState('');
   
   // Invoice Manager
   const [showInvoiceManager, setShowInvoiceManager] = useState(false);
   const [createdOrderData, setCreatedOrderData] = useState<any>(null);
 
-  const notify = useNotify();
+  const { notify } = useToast();
+  const { serialNumberConfig } = useSettings();
 
   // Calculate subtotal and total
   const subtotal = items.reduce((sum, item) => sum + (item.quantity * item.unit_price), 0);
   const total = subtotal - discount;
 
-  // Initialize serial number configuration
-  useEffect(() => {
-    try {
-      const config = SERIAL_CONFIGS.PACKAGE;
-      setCustomPrefix(config.prefix);
-      setCustomDigits(config.randomDigits);
-      setCustomSeparator(config.separator || '');
-      setPreviewSerial(generateSerialNumber(config));
-    } catch (error) {
-      console.error('Error initializing serial number:', error);
-    }
-  }, []);
-
-  // Generate new order ID
+  // Generate new order ID using settings from backend
   const generateNewOrderId = () => {
     try {
-      const config = {
-        prefix: customPrefix,
-        randomDigits: customDigits,
-        separator: customSeparator
-      };
-      const newOrderId = generateSerialNumber(config);
+      const newOrderId = generateSerialNumber(serialNumberConfig);
       setGeneratedOrderId(newOrderId);
-      setPreviewSerial(newOrderId);
     } catch (error) {
       console.error('Error generating order ID:', error);
       notify.error('Error generating order ID');
@@ -106,7 +84,7 @@ const NewOrderForm: React.FC<NewOrderFormProps> = ({ isOpen, onClose, onSuccess 
     if (isOpen) {
       generateNewOrderId();
     }
-  }, [isOpen]);
+  }, [isOpen, serialNumberConfig]);
 
   // Load customers when modal opens
   useEffect(() => {
@@ -365,149 +343,51 @@ const NewOrderForm: React.FC<NewOrderFormProps> = ({ isOpen, onClose, onSuccess 
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-      <div className="bg-white rounded-xl shadow-xl max-w-6xl w-full max-h-[95vh] overflow-y-auto">
-        <div className="flex items-center justify-between p-6 border-b border-gray-200">
-          <h2 className="text-2xl font-bold text-gray-900">Create New Order</h2>
-          <button
-            onClick={onClose}
-            className="text-gray-400 hover:text-gray-600 transition-colors duration-200"
-          >
-            <X className="h-6 w-6" />
-          </button>
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-xl shadow-xl w-full max-w-6xl max-h-[90vh] overflow-y-auto">
+        <div className="p-6 border-b border-gray-200">
+          <div className="flex items-center justify-between">
+            <h2 className="text-2xl font-bold text-gray-900">Create New Order</h2>
+            <button
+              onClick={onClose}
+              className="text-gray-500 hover:text-gray-700 transition-colors duration-200"
+            >
+              <X className="h-6 w-6" />
+            </button>
+          </div>
         </div>
 
-        <div className="p-6">
-          <form onSubmit={handleSubmit} className="space-y-6">
-            {error && (
-              <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg">
-                {error}
-              </div>
-            )}
-
-            {/* Order ID and Serial Number Configuration */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              {/* Order ID Section */}
-              <div className="bg-blue-50 p-4 rounded-lg">
-                <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
-                  <Hash className="h-5 w-5 mr-2" />
-                  Order ID
-                </h3>
-                <div className="space-y-3">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Generated Order ID
-                    </label>
-                    <div className="flex items-center space-x-2">
-                      <input
-                        type="text"
-                        value={generatedOrderId}
-                        readOnly
-                        className="flex-1 px-3 py-2 border border-gray-300 rounded-lg bg-gray-50 text-gray-700 font-mono"
-                      />
-                      <button
-                        type="button"
-                        onClick={generateNewOrderId}
-                        className="px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors duration-200"
-                      >
-                        Regenerate
-                      </button>
-                    </div>
-                    <p className="text-xs text-gray-500 mt-1">Format: 3-digit number + "ORD"</p>
-                  </div>
+        <form onSubmit={handleSubmit} className="p-6">
+          <div className="space-y-6">
+            {/* Order ID Section */}
+            <div className="bg-blue-50 p-4 rounded-lg">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Generated Order ID
+                </label>
+                <div className="flex items-center space-x-2">
+                  <input
+                    type="text"
+                    value={generatedOrderId}
+                    readOnly
+                    className="flex-1 px-3 py-2 border border-gray-300 rounded-lg bg-gray-50 text-gray-700 font-mono"
+                  />
+                  <button
+                    type="button"
+                    onClick={generateNewOrderId}
+                    className="px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors duration-200"
+                  >
+                    Regenerate
+                  </button>
                 </div>
-              </div>
-
-              {/* Serial Number Configuration */}
-              <div className="bg-green-50 p-4 rounded-lg">
-                <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
-                  <Package className="h-5 w-5 mr-2" />
-                  Package Serial Number
-                </h3>
-                <div className="space-y-3">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Preset Configuration
-                    </label>
-                    <select
-                      onChange={(e) => handlePresetConfigChange(e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                    >
-                      <option value="PACKAGE">Package (PKG1234)</option>
-                      <option value="LAUNDRY">Laundry (LAU-123)</option>
-                      <option value="ORDER">Order (ORD12345)</option>
-                      <option value="DELIVERY">Delivery (DEL-1234)</option>
-                      <option value="CUSTOM">Custom</option>
-                    </select>
-                  </div>
-
-                  <div className="grid grid-cols-3 gap-2">
-                    <div>
-                      <label className="block text-xs font-medium text-gray-600 mb-1">
-                        Prefix
-                      </label>
-                      <input
-                        type="text"
-                        value={customPrefix}
-                        onChange={(e) => setCustomPrefix(e.target.value.toUpperCase())}
-                        maxLength={5}
-                        className="w-full px-2 py-1 border border-gray-300 rounded text-sm focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-xs font-medium text-gray-600 mb-1">
-                        Digits
-                      </label>
-                      <select
-                        value={customDigits}
-                        onChange={(e) => setCustomDigits(parseInt(e.target.value))}
-                        className="w-full px-2 py-1 border border-gray-300 rounded text-sm focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                      >
-                        <option value={1}>1</option>
-                        <option value={2}>2</option>
-                        <option value={3}>3</option>
-                        <option value={4}>4</option>
-                        <option value={5}>5</option>
-                      </select>
-                    </div>
-                    <div>
-                      <label className="block text-xs font-medium text-gray-600 mb-1">
-                        Separator
-                      </label>
-                      <input
-                        type="text"
-                        value={customSeparator}
-                        onChange={(e) => setCustomSeparator(e.target.value)}
-                        maxLength={1}
-                        placeholder="- or _"
-                        className="w-full px-2 py-1 border border-gray-300 rounded text-sm focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                      />
-                    </div>
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Preview
-                    </label>
-                    <div className="flex items-center space-x-2">
-                      <input
-                        type="text"
-                        value={previewSerial}
-                        readOnly
-                        className="flex-1 px-3 py-2 border border-gray-300 rounded-lg bg-gray-50 text-gray-700 font-mono"
-                      />
-                      <button
-                        type="button"
-                        onClick={generateNewOrderId}
-                        className="px-3 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors duration-200"
-                      >
-                        Generate
-                      </button>
-                    </div>
-                  </div>
-                </div>
+                <p className="text-xs text-gray-500 mt-1">
+                  Configure serial number format in Settings → Package Serial Numbers
+                </p>
               </div>
             </div>
+
+            {/* Remove the entire Serial Number Configuration section */}
+            {/* The section from line ~420 to ~490 should be removed */}
 
             {/* Customer Selection */}
             <div>
@@ -842,8 +722,8 @@ const NewOrderForm: React.FC<NewOrderFormProps> = ({ isOpen, onClose, onSuccess 
                 <span>{isSubmitting ? 'Creating...' : 'Create Order'}</span>
               </button>
             </div>
-          </form>
-        </div>
+          </div>
+        </form>
       </div>
 
       {/* Invoice Manager */}

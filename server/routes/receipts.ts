@@ -9,14 +9,12 @@ router.get('/order/:orderId', async (req, res) => {
   try {
     const { orderId } = req.params;
     
-    // Get order with customer info
+    // Get order with customer info (around line 12-19)
     const [orderRows] = await db.execute<RowDataPacket[]>(
       `SELECT 
         o.*,
         c.customer_name,
-        c.phone_number,
-        c.email,
-        c.address
+        c.phone_number
        FROM orders o
        JOIN customers c ON o.customer_id = c.customer_id
        WHERE o.order_id = ?`,
@@ -53,11 +51,11 @@ router.get('/order/:orderId', async (req, res) => {
       deliveryDate: order.delivery_date,
       status: order.status,
       
-      // Customer Info
+      // Customer Info (around line 58-60)
       customerName: order.customer_name,
       customerPhone: order.phone_number,
-      customerEmail: order.email,
-      customerAddress: order.address,
+      customerEmail: null, // Not available in current schema
+      customerAddress: null, // Not available in current schema
       
       // Items
       items: items.map(item => ({

@@ -1,6 +1,6 @@
 import React from 'react';
 import { Bell, Search } from 'lucide-react';
-import { useLanguage } from '../../contexts/LanguageContext';
+import { useTranslation } from '../../store';
 import LanguageSwitcher from './LanguageSwitcher';
 
 interface HeaderProps {
@@ -8,7 +8,7 @@ interface HeaderProps {
 }
 
 const Header: React.FC<HeaderProps> = ({ activeTab }) => {
-  const { t } = useLanguage();
+  const { t } = useTranslation();
 
   const getPageTitle = (tab: string) => {
     const titles: Record<string, string> = {

@@ -1,8 +1,8 @@
 import { useEffect } from 'react';
-import { useNotify } from '../../hooks/useNotify';
+import { useToast } from '../../hooks/useToast';
 
 const ApiNotificationListener: React.FC = () => {
-  const notify = useNotify();
+  const { notify } = useToast();
 
   useEffect(() => {
     const handleApiSuccess = (event: CustomEvent) => {
@@ -24,7 +24,7 @@ const ApiNotificationListener: React.FC = () => {
         if (method === 'PUT') message = 'Payment updated successfully';
       }
       
-      notify.success('Success', message);
+      notify.success(message);
     };
 
     const handleApiError = (event: CustomEvent) => {

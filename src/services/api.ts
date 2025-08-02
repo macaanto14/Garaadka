@@ -282,7 +282,26 @@ export const customersAPI = {
 
 // Orders API
 export const ordersAPI = {
-  getAll: () => apiRequest('/orders', {}, false),
+  getAll: (params?: {
+    limit?: number;
+    offset?: number;
+    sort_by?: string;
+    sort_order?: 'ASC' | 'DESC';
+    status?: string;
+  }) => {
+    const searchParams = new URLSearchParams();
+    
+    if (params) {
+      Object.entries(params).forEach(([key, value]) => {
+        if (value !== undefined && value !== null) {
+          searchParams.append(key, value.toString());
+        }
+      });
+    }
+    
+    const queryString = searchParams.toString();
+    return apiRequest(`/orders${queryString ? `?${queryString}` : ''}`, {}, false);
+  },
   getById: (id: string) => apiRequest(`/orders/${id}`, {}, false),
   getByCustomer: (customerId: string) => apiRequest(`/orders/customer/${customerId}`, {}, false),
   create: (orderData: any) => apiRequest('/orders', {
@@ -304,23 +323,146 @@ export const ordersAPI = {
 };
 
 // Payments API
+// Update the paymentsAPI section
 export const paymentsAPI = {
   getAll: () => apiRequest('/payments', {}, false),
   
-  getStats: () => apiRequest('/payments/stats', {}, false),
+  getById: (id: string) => apiRequest(`/payments/${id}`, {}, false),
+  
+  getByOrderId: (orderId: string) => apiRequest(`/payments/order/${orderId}`, {}, false),
+  
+  getStats: () => apiRequest('/payments/stats/dashboard', {}, false),
   
   create: (paymentData: any) =>
     apiRequest('/payments', {
       method: 'POST',
       body: JSON.stringify(paymentData),
     }),
+    
+  update: (id: string, paymentData: any) =>
+    apiRequest(`/payments/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(paymentData),
+    }),
+    
+  delete: (id: string) =>
+    apiRequest(`/payments/${id}`, {
+      method: 'DELETE',
+    }),
 };
 
 // Audit API
 export const auditAPI = {
-  getAll: () => apiRequest('/audit', {}, false),
+  // Get all audit logs with filtering and pagination
+  getAll: (params?: {
+    table_name?: string;
+    action_type?: string;
+    emp_id?: string;
+    start_date?: string;
+    end_date?: string;
+    search?: string;
+    limit?: number;
+    offset?: number;
+    sort_by?: string;
+    sort_order?: 'ASC' | 'DESC';
+  }) => {
+    const searchParams = new URLSearchParams();
+    
+    if (params) {
+      Object.entries(params).forEach(([key, value]) => {
+        if (value !== undefined && value !== null) {
+          searchParams.append(key, value.toString());
+        }
+      });
+    }
+    
+    const queryString = searchParams.toString();
+    return apiRequest(`/audit${queryString ? `?${queryString}` : ''}`, {}, false);
+  },
   
+  // Get audit statistics
   getStats: () => apiRequest('/audit/stats', {}, false),
+  
+  // Get audit history for a specific record
+  getRecordHistory: (table: string, id: string) => 
+    apiRequest(`/audit/record/${table}/${id}`, {}, false),
+  
+  // Get user activity logs
+  getUserActivity: (username: string, limit?: number, offset?: number) => {
+    const params = new URLSearchParams();
+    if (limit) params.append('limit', limit.toString());
+    if (offset) params.append('offset', offset.toString());
+    
+    const queryString = params.toString();
+    return apiRequest(`/audit/user/${username}${queryString ? `?${queryString}` : ''}`, {}, false);
+  },
+  
+  // Get timeline analytics
+  getTimeline: (params: {
+    start_date: string;
+    end_date: string;
+    group_by?: 'hour' | 'day' | 'week' | 'month';
+  }) => {
+    const searchParams = new URLSearchParams();
+    Object.entries(params).forEach(([key, value]) => {
+      if (value !== undefined && value !== null) {
+        searchParams.append(key, value.toString());
+      }
+    });
+    
+    return apiRequest(`/audit/analytics/timeline?${searchParams.toString()}`, {}, false);
+  },
+  
+  // Export audit logs as CSV
+  exportCSV: (params?: {
+    table_name?: string;
+    action_type?: string;
+    emp_id?: string;
+    start_date?: string;
+    end_date?: string;
+    search?: string;
+  }) => {
+    const searchParams = new URLSearchParams();
+    
+    if (params) {
+      Object.entries(params).forEach(([key, value]) => {
+        if (value !== undefined && value !== null) {
+          searchParams.append(key, value.toString());
+        }
+      });
+    }
+    
+    const queryString = searchParams.toString();
+    return fetch(`${API_BASE_URL}/audit/export${queryString ? `?${queryString}` : ''}`, {
+      headers: {
+        Authorization: `Bearer ${getToken()}`,
+      },
+    }).then(response => {
+      if (!response.ok) {
+        throw new Error('Export failed');
+      }
+      return response.blob();
+    });
+  },
+  
+  // Create manual audit log entry
+  createEntry: (data: {
+    table_name: string;
+    record_id: string;
+    action_type: 'CREATE' | 'UPDATE' | 'DELETE' | 'LOGIN' | 'LOGOUT';
+    status: string;
+    old_values?: string;
+    new_values?: string;
+  }) => apiRequest('/audit', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  }),
+  
+  // Clean up old audit logs
+  cleanup: (retention_days: number = 365) => 
+    apiRequest(`/audit/cleanup?retention_days=${retention_days}`, {
+      method: 'DELETE',
+    }),
 };
 
 // Receipts API
@@ -381,8 +523,10 @@ export const registerAPI = {
     }),
   
   // Get register statistics
-  getStats: () => apiRequest('/register/stats/summary', {}, false),
+  getStats: () => apiRequest('/register/stats', {}, false),
 };
 
 // Export token management functions
 export { getToken, setToken, removeToken };
+
+export { settingsAPI } from './settingsAPI';

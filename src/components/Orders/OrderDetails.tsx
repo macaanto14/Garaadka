@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { X, Edit, Save, XCircle, Package, Calendar, DollarSign, User, Phone, MapPin, Clock, CheckCircle, AlertCircle, Truck } from 'lucide-react';
-import { useLanguage } from '../../contexts/LanguageContext';
+import { useTranslation } from '../../store';
 import { LaundryOrder } from '../../types';
 
 interface OrderDetailsProps {
@@ -11,7 +11,7 @@ interface OrderDetailsProps {
 }
 
 const OrderDetails: React.FC<OrderDetailsProps> = ({ order, isOpen, onClose, onUpdate }) => {
-  const { t } = useLanguage();
+  const { t } = useTranslation();
   const [isEditing, setIsEditing] = useState(false);
   const [editedOrder, setEditedOrder] = useState<LaundryOrder | null>(null);
 
@@ -22,10 +22,17 @@ const OrderDetails: React.FC<OrderDetailsProps> = ({ order, isOpen, onClose, onU
     setIsEditing(true);
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (editedOrder) {
-      onUpdate(editedOrder);
-      setIsEditing(false);
+      try {
+        await onUpdate(editedOrder);
+        setIsEditing(false);
+        // Don't close modal here - let parent handle it
+      } catch (error) {
+        console.error('Error updating order:', error);
+        // Show error notification
+        notify.error('Failed to update order. Please try again.');
+      }
     }
   };
 

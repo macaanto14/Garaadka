@@ -1,0 +1,39 @@
+# ========================================================================
+# MARIADB CUSTOM CONFIGURATION
+# ========================================================================
+
+[mysqld]
+# Character set and collation
+character-set-server = utf8mb4
+collation-server = utf8mb4_unicode_ci
+init-connect = 'SET NAMES utf8mb4'
+
+# Performance settings
+innodb_buffer_pool_size = 256M
+innodb_log_file_size = 64M
+innodb_flush_log_at_trx_commit = 1
+innodb_flush_method = O_DIRECT
+
+# Connection settings
+max_connections = 200
+max_connect_errors = 1000
+wait_timeout = 600
+interactive_timeout = 600
+
+# Query cache
+query_cache_type = 1
+query_cache_size = 64M
+query_cache_limit = 2M
+
+# Logging
+slow_query_log = 1
+slow_query_log_file = /var/log/mysql/slow.log
+long_query_time = 2
+
+# Binary logging for replication
+log-bin = mysql-bin
+binlog_format = ROW
+expire_logs_days = 7
+
+# Security
+local_infile = 0

@@ -3,14 +3,14 @@ import { Plus, Users, CreditCard, FileText, Package, DollarSign, Clock, CheckCir
 import StatCard from './StatCard';
 import CustomerSearch from './CustomerSearch';
 import RecentOrders from './RecentOrders';
-import { useLanguage } from '../../contexts/LanguageContext';
-import { useNavigation } from '../../contexts/NavigationContext';
+import { useTranslation, useLanguage, useUI } from '../../store';
 import NewOrderForm from '../Orders/NewOrderForm';
 import CustomerRegistration from '../Customers/CustomerRegistration';
 
 const Dashboard: React.FC = () => {
-  const { language, t } = useLanguage();
-  const { navigateTo } = useNavigation();
+  const { t } = useTranslation();
+  const language = useLanguage();
+  const { navigateTo } = useUI();
   const [showNewOrderForm, setShowNewOrderForm] = useState(false);
   const [showCustomerRegistration, setShowCustomerRegistration] = useState(false);
 

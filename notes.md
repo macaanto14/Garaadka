@@ -72,3 +72,54 @@ npm run dev:cloud
 
 # Build for production with cloud backend  
 npm run build:cloud
+
+
+Best Way to Use Zustand
+
+1) Selective State Access (Avoid Re-Renders)
+
+Always select only what you need from the store to prevent unnecessary re-renders.
+
+2) Use Immer for Immutability
+
+Zustand works great with Immer, especially for deep state updates.
+
+3) Persist State with Middleware
+
+Persist user preferences or auth tokens using zustand/middleware.
+
+4) Split Stores for Better Modularity
+
+Avoid monolithic stores. Split by domain, feature, or responsibility.
+
+5) Avoid React Context Unless Needed
+
+Zustand works independently of React context. Only use context if you need to scope stores (e.g., per-user sessions in multi-tab apps).
+
+6) Use Zustand Outside React
+You can use the store even in utility functions or event handlers outside React components.
+
+7) Subscribe to Store Changes
+
+For non-component logic (e.g., analytics, localStorage sync):
+
+
+
+
+Avoid Common Mistakes 
+
+- Accessing full state ( Why It’s Bad - Triggers unnecessary re-renders - Fix = Use selector functions)
+
+- Single giant store (Why It’s Bad - Hard to maintain and debug - Fix = Split by domain )
+
+- Updating nested objects without Immer (	Why It’s Bad - Can lead to bugs - fix = Use immer middleware)
+
+- Using Zustand as local state - (	Why It’s Bad - Overkill for local component state - fix = Use useState or useReducer instead)
+
+
+| Mistake                               | Why It’s Bad                       | Fix                                    |
+| ------------------------------------- | ---------------------------------- | -------------------------------------- |
+| Accessing full state                  | Triggers unnecessary re-renders    | Use selector functions                 |
+| Single giant store                    | Hard to maintain and debug         | Split by domain                        |
+| Updating nested objects without Immer | Can lead to bugs                   | Use `immer` middleware                 |
+| Using Zustand as local state          | Overkill for local component state | Use `useState` or `useReducer` instead |
