@@ -1,8 +1,8 @@
 import express from 'express';
-import { db } from '../index.js';
-import { auditMiddleware, addAuditFieldsForInsert, addAuditFieldsForUpdate, addAuditFieldsForDelete, AuditableRequest } from '../middleware/auditMiddleware.js';
-import { verifyToken } from '../middleware/auth.js';
-import { formatAuditDate, insertAuditLog } from '../utils/auditUtils.js';
+import { db } from '../index';
+import { auditMiddleware, addAuditFieldsForInsert, addAuditFieldsForUpdate, addAuditFieldsForDelete, AuditableRequest } from '../middleware/auditMiddleware';
+import { verifyToken } from '../middleware/auth';
+import { formatAuditDate, insertAuditLog } from '../utils/auditUtils';
 import { RowDataPacket, ResultSetHeader } from 'mysql2';
 
 const router = express.Router();
