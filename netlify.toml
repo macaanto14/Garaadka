@@ -1,10 +1,14 @@
 [build]
   publish = "dist"
-  command = "npm run build"
+  command = "npm run build:prod"
+
+[build.environment]
+  VITE_API_BASE_URL = "http://64.227.158.26/api"
+  VITE_NODE_ENV = "production"
 
 [[redirects]]
   from = "/api/*"
-  to = "https://64.227.158.26/api/:splat"
+  to = "http://64.227.158.26/api/:splat"
   status = 200
   force = true
   headers = {X-From = "Netlify"}
