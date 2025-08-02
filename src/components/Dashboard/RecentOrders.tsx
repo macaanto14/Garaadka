@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Clock, Package, CheckCircle, AlertCircle, Eye, Edit } from 'lucide-react';
 import { ordersAPI } from '../../services/api';
 import { useTranslation, useLanguage } from '../../store';
-import { formatCurrency } from '../../utils/currency';
+import { formatCurrency as formatCurrencyUtil } from '../../utils/currency';
 import { LaundryOrder } from '../../types';
 import OrderDetailsModal from '../Orders/OrderDetailsModal';
 import OrderDetails from '../Orders/OrderDetails';
@@ -171,6 +171,11 @@ const RecentOrders: React.FC<RecentOrdersProps> = ({ limit = 10 }) => {
   };
 
   const getPaymentStatusText = (paymentStatus: string): string => {
+    // Handle null/undefined payment status
+    if (!paymentStatus) {
+      return language === 'so' ? 'Ma cadda' : 'Unknown';
+    }
+    
     if (language === 'so') {
       switch (paymentStatus.toLowerCase()) {
         case 'paid':
@@ -187,7 +192,18 @@ const RecentOrders: React.FC<RecentOrdersProps> = ({ limit = 10 }) => {
   };
 
   const formatDate = (dateString: string): string => {
+    // Handle invalid or missing dates
+    if (!dateString) {
+      return language === 'so' ? 'Taariikh ma jirto' : 'No date';
+    }
+    
     const date = new Date(dateString);
+    
+    // Check if date is valid
+    if (isNaN(date.getTime())) {
+      return language === 'so' ? 'Taariikh qaldan' : 'Invalid date';
+    }
+    
     return date.toLocaleDateString(language === 'so' ? 'so-SO' : 'en-US', {
       month: 'short',
       day: 'numeric',
@@ -197,6 +213,11 @@ const RecentOrders: React.FC<RecentOrdersProps> = ({ limit = 10 }) => {
   };
 
   const formatCurrency = (amount: number | string): string => {
+    // Handle null/undefined amounts
+    if (amount === null || amount === undefined) {
+      return 'ETB 0.00';
+    }
+    
     const numAmount = typeof amount === 'string' ? parseFloat(amount) : amount;
     
     if (isNaN(numAmount)) {
