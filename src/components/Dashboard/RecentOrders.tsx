@@ -43,8 +43,9 @@ const RecentOrders: React.FC<RecentOrdersProps> = ({ limit = 10 }) => {
       setLoading(true);
       setError(null);
       const data = await ordersAPI.getAll();
-      // Take only the specified limit of recent orders
-      setOrders(data.slice(0, limit));
+      // Extract orders array from response object and take only the specified limit
+      const ordersArray = data.orders || data;
+      setOrders(ordersArray.slice(0, limit));
     } catch (err) {
       console.error('Error loading recent orders:', err);
       setError(language === 'so' ? 'Qalad ayaa dhacay markii la raadinayay dalabka' : 'Error loading recent orders');

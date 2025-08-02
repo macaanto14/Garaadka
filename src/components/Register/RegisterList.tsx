@@ -13,7 +13,7 @@ interface RegisterRecord {
   laundry_items?: any;
   drop_off_date?: string;
   pickup_date?: string;
-  delivery_status: 'pending' | 'ready' | 'delivered' | 'cancelled';
+  delivery_status: 'pending' | 'delivered'; // Updated to match backend
   total_amount: number;
   paid_amount: number;
   balance: number;
@@ -93,9 +93,7 @@ const RegisterList: React.FC = () => {
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'pending': return 'bg-yellow-100 text-yellow-800';
-      case 'ready': return 'bg-blue-100 text-blue-800';
       case 'delivered': return 'bg-green-100 text-green-800';
-      case 'cancelled': return 'bg-red-100 text-red-800';
       default: return 'bg-gray-100 text-gray-800';
     }
   };
@@ -103,9 +101,7 @@ const RegisterList: React.FC = () => {
   const getStatusIcon = (status: string) => {
     switch (status) {
       case 'pending': return <Clock className="w-4 h-4" />;
-      case 'ready': return <Package className="w-4 h-4" />;
       case 'delivered': return <CheckCircle className="w-4 h-4" />;
-      case 'cancelled': return <XCircle className="w-4 h-4" />;
       default: return <Clock className="w-4 h-4" />;
     }
   };
@@ -141,9 +137,7 @@ const RegisterList: React.FC = () => {
             >
               <option value="all">{t('register.allStatuses')}</option>
               <option value="pending">{t('status.pending')}</option>
-              <option value="ready">{t('status.ready')}</option>
               <option value="delivered">{t('status.delivered')}</option>
-              <option value="cancelled">{t('status.cancelled')}</option>
             </select>
           </div>
           
@@ -255,9 +249,7 @@ const RegisterList: React.FC = () => {
                         className="text-sm border border-gray-300 rounded px-2 py-1 focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:opacity-50"
                       >
                         <option value="pending">{t('status.pending') || 'Pending'}</option>
-                        <option value="ready">{t('status.ready') || 'Ready'}</option>
                         <option value="delivered">{t('status.delivered') || 'Delivered'}</option>
-                        <option value="cancelled">{t('status.cancelled') || 'Cancelled'}</option>
                       </select>
                       {updatingStatus === record.id && (
                         <div className="inline-block ml-2">

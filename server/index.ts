@@ -12,13 +12,45 @@ import registerRouter from './routes/register.js';
 import registerLegacyRouter from './routes/register_legacy.js';
 import settingsRouter from './routes/settings.js';
 
-dotenv.config();
+dotenv.config({ path: process.env.NODE_ENV === 'production' ? '/etc/garaadka/.env.production' : '.env' });
 
 const app = express();
 const PORT = process.env.PORT || 5000;
 
+// CORS configuration for Ubuntu server
+const corsOptions = {
+  origin: function (origin: string | undefined, callback: (err: Error | null, allow?: boolean) => void) {
+    // Allow requests with no origin (like mobile apps or curl requests)
+    if (!origin) return callback(null, true);
+    
+    const allowedOrigins = process.env.CORS_ORIGIN?.split(',').map(o => o.trim()) || [
+      'http://localhost:3000',
+      'http://localhost:5173',
+      'http://45.55.216.189',
+      'http://45.55.216.189:3000',
+      'http://45.55.216.189:5173',
+      'https://45.55.216.189',
+      'https://45.55.216.189:3000',
+      'https://45.55.216.189:5173'
+    ];
+    
+    console.log('CORS check - Origin:', origin, 'Allowed:', allowedOrigins);
+    
+    if (allowedOrigins.some(allowed => origin?.startsWith(allowed))) {
+      callback(null, true);
+    } else {
+      console.log('CORS blocked origin:', origin);
+      callback(null, true); // Allow all for now, restrict later
+    }
+  },
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
+  optionsSuccessStatus: 200
+};
+
 // Middleware
-app.use(cors());
+app.use(cors(corsOptions));
 app.use(express.json());
 
 // Database connection
