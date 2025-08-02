@@ -257,16 +257,23 @@ router.put('/:id', async (req: AuditableRequest, res) => {
       return res.status(404).json({ error: 'Order not found' });
     }
 
+    // Build update data - only include fields that are provided
+    // For customer_id, preserve existing value if not provided
     const updateData = addAuditFieldsForUpdate({
-      customer_id: customer_id || null,
+      customer_id: customer_id !== undefined ? customer_id : oldOrder[0].customer_id,
       due_date: formatDateForMySQL(due_date),
       delivery_date: formatDateForMySQL(delivery_date),
-      status: status || null,
-      payment_status: payment_status || null,
-      payment_method: payment_method || null,
-      notes: notes || null,
-      total_amount: total_amount || null
+      status: status !== undefined ? status : oldOrder[0].status,
+      payment_status: payment_status !== undefined ? payment_status : oldOrder[0].payment_status,
+      payment_method: payment_method !== undefined ? payment_method : oldOrder[0].payment_method,
+      notes: notes !== undefined ? notes : oldOrder[0].notes,
+      total_amount: total_amount !== undefined ? total_amount : oldOrder[0].total_amount
     }, req.auditUser || 'system');
+
+    // Validate that customer_id is not null
+    if (!updateData.customer_id) {
+      return res.status(400).json({ error: 'Customer ID is required' });
+    }
 
     const [result] = await db.execute<ResultSetHeader>(
       `UPDATE orders SET 
