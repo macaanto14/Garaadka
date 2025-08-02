@@ -3,7 +3,7 @@
 
 DROP TABLE IF EXISTS `register`;
 
-CREATE TABLE `register` (
+CREATE TABLE `registeral` (
   `id` int(11) NOT NULL AUTO_INCREMENT,
   `name` varchar(255) NOT NULL,
   `customer_name` varchar(255) DEFAULT NULL,

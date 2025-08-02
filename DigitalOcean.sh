@@ -75,4 +75,13 @@ pm2 logs garaadka-api
 
 # 6. Test the API
 curl http://45.55.216.189/api/health
-curl http://45.55.216.189:5000/api/health
+curl http://45.55.216.189:5000/api/
+
+
+# Build frontend (run this where your frontend code is)
+npm run build:prod
+
+# Copy built files to nginx directory
+sudo mkdir -p /var/www/garaadka
+sudo cp -r dist/* /var/www/garaadka/
+sudo chown -R www-data:www-data /var/www/garaadka

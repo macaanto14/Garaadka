@@ -73,7 +73,7 @@ sudo chown -R garaadka:garaadka /var/backups/garaadka
 print_status "Installing Node.js dependencies..."
 npm install --production
 
-# Build TypeScript
+# Build TypeScript``
 print_status "Building TypeScript..."
 npm run build
 
