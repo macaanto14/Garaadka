@@ -186,6 +186,7 @@ export const useTranslation = () => {
       'nav.customers': 'Customers',
       'nav.register': 'Register',
       'nav.payments': 'Payments',
+      'nav.cashManagement': 'Cash Management',
       'nav.audit': 'Audit Logs',
       'nav.settings': 'Settings',
       'nav.logout': 'Logout',

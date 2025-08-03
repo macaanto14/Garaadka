@@ -2,15 +2,16 @@ import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
 import mysql from 'mysql2/promise';
-import ordersRouter from './routes/orders.js';
-import customersRouter from './routes/customers.js';
-import paymentsRouter from './routes/payments.js';
-import auditRouter from './routes/audit.js';
-import authRouter from './routes/auth.js';
-import receiptsRouter from './routes/receipts.js';
-import registerRouter from './routes/register.js';
-import registerLegacyRouter from './routes/register_legacy.js';
-import settingsRouter from './routes/settings.js';
+import ordersRouter from './routes/orders';
+import customersRouter from './routes/customers';
+import paymentsRouter from './routes/payments';
+import auditRouter from './routes/audit';
+import authRouter from './routes/auth';
+import receiptsRouter from './routes/receipts';
+import registerRouter from './routes/register';
+import registerLegacyRouter from './routes/register_legacy';
+import settingsRouter from './routes/settings';
+import closeCashRouter from './routes/closeCash';
 
 dotenv.config({ path: process.env.NODE_ENV === 'production' ? '/etc/garaadka/.env.production' : '.env' });
 
@@ -99,6 +100,7 @@ app.use('/api/register', registerRouter);
 app.use('/api/register-legacy', registerLegacyRouter);
 app.use('/api/audit', auditRouter);
 app.use('/api/settings', settingsRouter);
+app.use('/api/close-cash', closeCashRouter);
 
 // Health check endpoint
 app.get('/api/health', (req, res) => {

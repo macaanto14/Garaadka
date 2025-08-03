@@ -8,7 +8,8 @@ import {
   Settings,
   LogOut,
   Shirt,
-  Database
+  Database,
+  DollarSign
 } from 'lucide-react';
 import { useAuth, useTranslation, useUI } from '../../store';
 
@@ -23,6 +24,7 @@ const Sidebar: React.FC = () => {
     { id: 'customers', label: t('nav.customers'), icon: Users },
     { id: 'register', label: t('nav.register'), icon: Database },
     { id: 'payments', label: t('nav.payments'), icon: CreditCard },
+    { id: 'cashManagement', label: t('nav.cashManagement'), icon: DollarSign },
     { id: 'audit', label: t('nav.audit'), icon: FileText },
     { id: 'settings', label: t('nav.settings'), icon: Settings },
   ];

@@ -530,3 +530,41 @@ export const registerAPI = {
 export { getToken, setToken, removeToken };
 
 export { settingsAPI } from './settingsAPI';
+
+
+// Cash Management API
+export const cashManagementAPI = {
+  getDailySummary: (date: string) => 
+    apiRequest(`/close-cash/daily-summary?date=${date}`, {}, false),
+  
+  closeCash: (closeCashData: any) =>
+    apiRequest('/close-cash/close', {
+      method: 'POST',
+      body: JSON.stringify(closeCashData),
+    }),
+  
+  getHistory: (params: {
+    page?: number;
+    limit?: number;
+    startDate?: string;
+    endDate?: string;
+  } = {}) => {
+    const searchParams = new URLSearchParams();
+    if (params.page) searchParams.append('page', params.page.toString());
+    if (params.limit) searchParams.append('limit', params.limit.toString());
+    if (params.startDate) searchParams.append('startDate', params.startDate);
+    if (params.endDate) searchParams.append('endDate', params.endDate);
+    
+    const queryString = searchParams.toString();
+    return apiRequest(`/close-cash/history${queryString ? `?${queryString}` : ''}`, {}, false);
+  },
+  
+  getById: (id: number) => 
+    apiRequest(`/close-cash/${id}`, {}, false),
+  
+  update: (id: number, updateData: any) =>
+    apiRequest(`/close-cash/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(updateData),
+    }),
+};

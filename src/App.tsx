@@ -10,6 +10,7 @@ import OrderList from './components/Orders/OrderList';
 import CustomerList from './components/Customers/CustomerList';
 import RegisterPage from './components/Register/RegisterPage';
 import PaymentManagement from './components/Payments/PaymentManagement';
+import CashManagement from './components/CashManagement/CashManagement';
 import AuditLogs from './components/Audit/AuditLogs';
 import Settings from './components/Settings/Settings';
 import GlobalNotifications from './components/Common/GlobalNotifications';
@@ -47,6 +48,8 @@ const AppContent: React.FC = () => {
         return <PaymentManagement />;
       case 'audit':
         return <AuditLogs />;
+      case 'cashManagement':
+        return <CashManagement />;
       case 'settings':
         return <Settings />;
       default:
