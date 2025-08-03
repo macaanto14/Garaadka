@@ -3,12 +3,12 @@
   command = "npm run build:prod"
 
 [build.environment]
-  VITE_API_BASE_URL = "http://64.227.158.26/api"
+  VITE_API_BASE_URL = "https://api.einventory.et/api"
   VITE_NODE_ENV = "production"
 
 [[redirects]]
   from = "/api/*"
-  to = "http://64.227.158.26/api/:splat"
+  to = "https://api.einventory.et/api/:splat"
   status = 200
   force = true
   headers = {X-From = "Netlify"}
