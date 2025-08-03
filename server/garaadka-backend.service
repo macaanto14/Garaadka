@@ -1,0 +1,32 @@
+[Unit]
+Description=Garaadka Backend API Server
+After=network.target
+After=mysql.service
+Requires=mysql.service
+
+[Service]
+Type=simple
+User=www-data
+Group=www-data
+WorkingDirectory=/var/www/garaadka/server
+Environment=NODE_ENV=production
+Environment=PATH=/usr/bin:/usr/local/bin
+ExecStart=/usr/bin/npm start
+ExecReload=/bin/kill -HUP $MAINPID
+KillMode=mixed
+KillSignal=SIGINT
+TimeoutStopSec=5
+Restart=always
+RestartSec=10
+SyslogIdentifier=garaadka-backend
+
+# Security settings
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectSystem=strict
+ProtectHome=yes
+ReadWritePaths=/var/www/garaadka/server
+ReadWritePaths=/var/log
+
+[Install]
+WantedBy=multi-user.target
