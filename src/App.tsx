@@ -13,6 +13,7 @@ import PaymentManagement from './components/Payments/PaymentManagement';
 import AuditLogs from './components/Audit/AuditLogs';
 import Settings from './components/Settings/Settings';
 import GlobalNotifications from './components/Common/GlobalNotifications';
+import ToastListener from './components/Common/ToastListener';
 
 // Main App Content Component
 const AppContent: React.FC = () => {
@@ -63,6 +64,7 @@ const AppContent: React.FC = () => {
         </main>
       </div>
       <GlobalNotifications />
+      <ToastListener />
     </div>
   );
 };

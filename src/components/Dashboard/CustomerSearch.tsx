@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Search, Phone, Package, CheckCircle, Clock } from 'lucide-react';
 import { customersAPI, ordersAPI } from '../../services/api';
-import Toast from '../../utils/Toast';
+import { Toast } from '../../utils/Toast';
 
 interface Customer {
   customer_id: number;
