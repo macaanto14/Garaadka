@@ -30,7 +30,7 @@ interface OrderFromAPI {
 
 const OrderList: React.FC = () => {
   const { t } = useTranslation();
-  const { notify } = useNotify();
+  const notify = useNotify(); // Fixed: removed destructuring
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedStatus, setSelectedStatus] = useState('all');
   const [selectedPayment, setSelectedPayment] = useState('all');
