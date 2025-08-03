@@ -23,20 +23,32 @@ const corsOptions = {
     // Allow requests with no origin (like mobile apps or curl requests)
     if (!origin) return callback(null, true);
     
-    const allowedOrigins = process.env.CORS_ORIGIN?.split(',').map(o => o.trim()) || [
+    const corsOriginEnv = process.env.CORS_ORIGIN?.trim();
+    
+    // Handle wildcard - allow all origins
+    if (corsOriginEnv === '*') {
+      console.log('CORS check - Origin:', origin, 'Allowed: *');
+      return callback(null, true);
+    }
+    
+    const allowedOrigins = corsOriginEnv?.split(',').map(o => o.trim()) || [
       'http://localhost:3000',
       'http://localhost:5173',
-      'http://45.55.216.189',
-      'http://45.55.216.189:3000',
-      'http://45.55.216.189:5173',
-      'https://45.55.216.189',
-      'https://45.55.216.189:3000',
-      'https://45.55.216.189:5173'
+      'http://64.227.158.26',
+      'http://64.227.158.26:3000',
+      'http://64.227.158.26:5173',
+      'http://64.227.158.26:5000',
+      'https://64.227.158.26',
+      'https://64.227.158.26:3000',
+      'https://64.227.158.26:5173',
+      'https://64.227.158.26:5000',
+      'https://garaadka.netlify.app',
+      'https://api.einventory.et'
     ];
     
     console.log('CORS check - Origin:', origin, 'Allowed:', allowedOrigins);
     
-    if (allowedOrigins.some(allowed => origin?.startsWith(allowed))) {
+    if (allowedOrigins.some(allowed => origin === allowed || origin?.startsWith(allowed))) {
       callback(null, true);
     } else {
       console.log('CORS blocked origin:', origin);
