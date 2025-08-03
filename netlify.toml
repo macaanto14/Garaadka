@@ -6,11 +6,15 @@
   VITE_API_BASE_URL = "https://api.einventory.et/api"
   VITE_NODE_ENV = "production"
 
+# Remove the redirects and headers sections that are causing CORS conflicts
+# Let the backend server handle CORS directly
 [[redirects]]
   from = "/api/*"
   to = "https://api.einventory.et/api/:splat"
   status = 200
   force = true
+
+# No CORS headers here - let the backend handle them
   headers = {X-From = "Netlify"}
 
 [[headers]]
