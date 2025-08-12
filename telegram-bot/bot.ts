@@ -27,8 +27,10 @@ interface SessionData {
   awaitingOrderId?: boolean;
   awaitingFeedback?: boolean;
   awaitingNewOrder?: boolean;
+  awaitingAdminReply?: boolean;
   lastCommand?: string;
   currentCustomerPhone?: string;
+  replyToUserId?: number;
   reportFilters?: {
     startDate?: string;
     endDate?: string;
@@ -47,8 +49,10 @@ bot.use(session({
     awaitingOrderId: false,
     awaitingFeedback: false,
     awaitingNewOrder: false,
+    awaitingAdminReply: false,
     lastCommand: undefined,
     currentCustomerPhone: undefined,
+    replyToUserId: undefined,
     reportFilters: {}
   })
 }));
@@ -391,14 +395,57 @@ bot.command('ping', async (ctx: BotContext) => {
 bot.on(message('text'), async (ctx: BotContext) => {
   const text = ctx.message.text;
   
+  // Handle admin replies
+  if (ctx.session.awaitingAdminReply && ctx.session.replyToUserId) {
+    ctx.session.awaitingAdminReply = false;
+    const userId = ctx.session.replyToUserId;
+    ctx.session.replyToUserId = undefined;
+    
+    try {
+      await bot.telegram.sendMessage(userId, `📩 **Message from Garaadka Support:**\n\n${text}`, {
+        parse_mode: 'Markdown'
+      });
+      
+      await ctx.reply('✅ **Reply sent successfully!**\n\nYour message has been delivered to the user.', {
+        parse_mode: 'Markdown'
+      });
+    } catch (error) {
+      await ctx.reply('❌ **Failed to send reply**\n\nThe user may have blocked the bot or deleted their account.');
+    }
+    return;
+  }
+
   // Handle feedback
   if (ctx.session.awaitingFeedback) {
     ctx.session.awaitingFeedback = false;
     
-    // Save feedback to database or log
-    console.log(`Feedback from ${ctx.from?.username || ctx.from?.id}: ${text}`);
+    // Save feedback to database
+    try {
+      await db.execute(
+        'INSERT INTO feedback (user_id, username, first_name, last_name, feedback, created_at) VALUES (?, ?, ?, ?, ?, NOW())',
+        [
+          ctx.from?.id,
+          ctx.from?.username,
+          ctx.from?.first_name,
+          ctx.from?.last_name,
+          text
+        ]
+      );
+    } catch (error) {
+      console.error('Failed to save feedback to database:', error);
+    }
     
-    await ctx.reply('✅ **Thank you for your feedback!**\n\nYour suggestions help us improve the bot.', {
+    // Notify administrators
+    await notifyAdmins({
+      userId: ctx.from!.id,
+      username: ctx.from?.username,
+      firstName: ctx.from?.first_name,
+      lastName: ctx.from?.last_name,
+      feedback: text,
+      timestamp: new Date()
+    });
+    
+    await ctx.reply('✅ **Thank you for your feedback!**\n\nYour suggestions have been forwarded to our administrators and help us improve the bot.', {
       parse_mode: 'Markdown',
       ...getMainMenuKeyboard()
     });
@@ -735,45 +782,585 @@ async function generatePaymentReport(ctx: BotContext) {
 async function generatePendingOrdersReport(ctx: BotContext) {
   try {
     const [rows] = await db.execute(`
-      SELECT itemNum, NAME, totalAmount, duedate
+      SELECT itemNum, NAME, mobnum, totalAmount, duedate
       FROM register 
-      WHERE payCheck = 'NO'
+      WHERE (payCheck IS NULL OR payCheck != 'YES') 
+        AND mobnum IS NOT NULL AND mobnum != '' AND mobnum != '0'
+        AND totalAmount IS NOT NULL AND totalAmount > 0
       ORDER BY duedate ASC
-      LIMIT 15
-    `);
-    
-    if (!Array.isArray(rows) || rows.length === 0) {
-      await ctx.editMessageText('✅ **No Pending Orders**\n\nAll orders are paid!', {
-        parse_mode: 'Markdown',
-        ...getReportsKeyboard()
-      });
+      LIMIT 50
+    `) as any;
+
+    if (rows.length === 0) {
+      const message = '✅ **No Pending Orders**\n\nAll orders are paid!';
+      
+      // Check if this is the same message to avoid "message not modified" error
+      try {
+        await ctx.editMessageText(message, {
+          parse_mode: 'Markdown',
+          ...getMainMenuKeyboard()
+        });
+      } catch (editError: any) {
+        if (editError.description?.includes('message is not modified')) {
+          // Message is the same, just answer the callback query
+          await ctx.answerCbQuery('No pending orders found');
+        } else {
+          throw editError;
+        }
+      }
       return;
     }
+
+    let message = `💳 **Pending Orders Report**\n\n📊 **Total Pending:** ${rows.length}\n\n`;
+    let totalAmount = 0;
     
-    let response = '❌ **Pending Orders Report**\n\n';
-    let totalPending = 0;
-    
-    (rows as any[]).forEach((order) => {
-      response += `📋 #${order.itemNum} - **${order.NAME}**\n`;
-      response += `💰 ${formatCurrency(order.totalAmount)} - Due: ${formatDate(order.duedate)}\n\n`;
-      totalPending += order.totalAmount || 0;
+    rows.forEach((order: any, index: number) => {
+      const amount = parseFloat(order.totalAmount) || 0;
+      totalAmount += amount;
+      const dueDate = formatDate(order.duedate);
+      
+      message += `${index + 1}. **${order.NAME || 'Unknown'}**\n`;
+      message += `   📱 ${order.mobnum}\n`;
+      message += `   💰 ${formatCurrency(amount)} | 📅 ${dueDate}\n\n`;
     });
-    
-    response += `💸 **Total Pending: ${formatCurrency(totalPending)}**`;
-    
-    await ctx.editMessageText(response, {
+
+    message += `\n💰 **Total Pending Amount:** ${formatCurrency(totalAmount)}`;
+
+    await ctx.editMessageText(message, {
       parse_mode: 'Markdown',
-      ...getReportsKeyboard()
+      ...getMainMenuKeyboard()
     });
-    
   } catch (error) {
     console.error('Pending orders report error:', error);
-    await ctx.reply('❌ Error generating pending orders report.', getReportsKeyboard());
+    await ctx.editMessageText('❌ **Error**\n\nFailed to generate pending orders report.', {
+      parse_mode: 'Markdown',
+      ...getMainMenuKeyboard()
+    });
   }
 }
 
-// ... existing functions (getLatestOrder, getRecentOrders, getUnpaidOrders, getBusinessStats) ...
-// [Keep all your existing functions but add inline keyboards to responses]
+// Enhanced feedback notification function
+async function notifyAdmins(feedbackData: {
+  userId: number;
+  username?: string;
+  firstName?: string;
+  lastName?: string;
+  feedback: string;
+  timestamp: Date;
+}) {
+  const userInfo = [
+    feedbackData.firstName,
+    feedbackData.lastName
+  ].filter(Boolean).join(' ') || feedbackData.username || `User ${feedbackData.userId}`;
+
+  const feedbackMessage = `
+🔔 **New Feedback Received**
+
+👤 **From:** ${userInfo}
+🆔 **User ID:** ${feedbackData.userId}
+📱 **Username:** @${feedbackData.username || 'N/A'}
+⏰ **Time:** ${feedbackData.timestamp.toLocaleString()}
+
+💬 **Feedback:**
+${feedbackData.feedback}
+
+---
+#feedback #garaadka
+  `;
+
+  // Send to admin chat IDs
+  for (const adminId of adminChatIds) {
+    try {
+      await bot.telegram.sendMessage(adminId, feedbackMessage, {
+        parse_mode: 'Markdown',
+        reply_markup: {
+          inline_keyboard: [[
+            { text: '✅ Mark as Read', callback_data: `feedback_read_${feedbackData.userId}` },
+            { text: '💬 Reply to User', callback_data: `feedback_reply_${feedbackData.userId}` }
+          ]]
+        }
+      });
+    } catch (error) {
+      console.error(`Failed to send feedback to admin ${adminId}:`, error);
+    }
+  }
+
+  // Send to feedback channel if configured
+  if (feedbackChannelId) {
+    try {
+      await bot.telegram.sendMessage(feedbackChannelId, feedbackMessage, {
+        parse_mode: 'Markdown'
+      });
+    } catch (error) {
+      console.error('Failed to send feedback to channel:', error);
+    }
+  }
+}
+
+// Enhanced feedback handling in text message handler
+bot.on(message('text'), async (ctx: BotContext) => {
+  const text = ctx.message.text;
+  
+  // Handle feedback
+  if (ctx.session.awaitingFeedback) {
+    ctx.session.awaitingFeedback = false;
+    
+    // Save feedback to database
+    try {
+      await db.execute(
+        'INSERT INTO feedback (user_id, username, first_name, last_name, feedback, created_at) VALUES (?, ?, ?, ?, ?, NOW())',
+        [
+          ctx.from?.id,
+          ctx.from?.username,
+          ctx.from?.first_name,
+          ctx.from?.last_name,
+          text
+        ]
+      );
+    } catch (error) {
+      console.error('Failed to save feedback to database:', error);
+    }
+    
+    // Notify administrators
+    await notifyAdmins({
+      userId: ctx.from!.id,
+      username: ctx.from?.username,
+      firstName: ctx.from?.first_name,
+      lastName: ctx.from?.last_name,
+      feedback: text,
+      timestamp: new Date()
+    });
+    
+    await ctx.reply('✅ **Thank you for your feedback!**\n\nYour suggestions have been forwarded to our administrators and help us improve the bot.', {
+      parse_mode: 'Markdown',
+      ...getMainMenuKeyboard()
+    });
+    return;
+  }
+  
+  // Handle phone number input
+  if (ctx.session.awaitingPhone) {
+    ctx.session.awaitingPhone = false;
+    const command = ctx.session.lastCommand;
+    
+    switch (command) {
+      case 'search':
+        await searchCustomerByPhone(ctx, text);
+        break;
+      case 'latest':
+        await getLatestOrder(ctx, text);
+        break;
+      case 'customer':
+        await getCustomerDetails(ctx, text);
+        break;
+      case 'neworder':
+        await createNewOrder(ctx, text);
+        break;
+      default:
+        await searchCustomerByPhone(ctx, text);
+    }
+    return;
+  }
+  
+  // Handle order ID input
+  if (ctx.session.awaitingOrderId) {
+    ctx.session.awaitingOrderId = false;
+    const command = ctx.session.lastCommand;
+    
+    switch (command) {
+      case 'payment':
+        await processPayment(ctx, text);
+        break;
+      default:
+        await getOrderDetails(ctx, text);
+    }
+    return;
+  }
+  
+  // Default response with menu
+  await ctx.reply('🤖 I didn\'t understand that. Please use the menu below:', getMainMenuKeyboard());
+});
+
+// Admin feedback management handlers
+bot.action(/feedback_read_(\d+)/, async (ctx) => {
+  const userId = ctx.match![1];
+  await ctx.editMessageReplyMarkup({
+    inline_keyboard: [[
+      { text: '✅ Marked as Read', callback_data: 'noop' },
+      { text: '💬 Reply to User', callback_data: `feedback_reply_${userId}` }
+    ]]
+  });
+  await ctx.answerCbQuery('✅ Feedback marked as read');
+});
+
+bot.action(/feedback_reply_(\d+)/, async (ctx) => {
+  const userId = parseInt(ctx.match![1]);
+  ctx.session.awaitingAdminReply = true;
+  ctx.session.replyToUserId = userId;
+  
+  await ctx.editMessageReplyMarkup({
+    inline_keyboard: [[
+      { text: '❌ Cancel Reply', callback_data: 'cancel_admin_reply' }
+    ]]
+  });
+  
+  await ctx.reply('💬 **Reply to User**\n\nType your response to send to the user:', {
+    parse_mode: 'Markdown'
+  });
+});
+
+bot.action('cancel_admin_reply', async (ctx) => {
+  ctx.session.awaitingAdminReply = false;
+  ctx.session.replyToUserId = undefined;
+  await ctx.editMessageText('❌ Reply cancelled.');
+});
+
+// Get recent orders
+async function getRecentOrders(ctx: BotContext) {
+  try {
+    const [rows] = await db.execute(`
+      SELECT 
+        itemNum, 
+        NAME, 
+        mobnum, 
+        descr, 
+        quan, 
+        unitprice, 
+        totalAmount, 
+        payCheck, 
+        duedate, 
+        deliverdate,
+        col,
+        siz,
+        DATE(FROM_UNIXTIME(itemNum/1000)) as created_date
+      FROM register 
+      WHERE mobnum IS NOT NULL AND mobnum != '' AND mobnum != '0'
+      ORDER BY itemNum DESC 
+      LIMIT 15
+    `) as any;
+
+    if (rows.length === 0) {
+      await ctx.editMessageText('📭 **No Recent Orders Found**\n\nNo orders available in the system.', {
+        parse_mode: 'Markdown',
+        ...getMainMenuKeyboard()
+      });
+      return;
+    }
+
+    let message = '📋 **Recent Orders (Last 15)**\n\n';
+    
+    rows.forEach((order: any, index: number) => {
+      const paymentStatus = order.payCheck === 'YES' ? '✅ Paid' : '❌ Unpaid';
+      const totalAmount = order.totalAmount ? formatCurrency(parseFloat(order.totalAmount)) : 'N/A';
+      const unitPrice = order.unitprice ? formatCurrency(parseFloat(order.unitprice)) : 'N/A';
+      const dueDate = formatDate(order.duedate);
+      const deliveryDate = order.deliverdate ? formatDate(order.deliverdate) : 'Not Set';
+      const quantity = order.quan || 'N/A';
+      const description = order.descr || 'No description';
+      const color = order.col || '';
+      const size = order.siz || '';
+      const itemDetails = [color, size].filter(Boolean).join(', ');
+      
+      message += `**${index + 1}. Order #${order.itemNum}**\n`;
+      message += `👤 **Customer:** ${order.NAME || 'Unknown'}\n`;
+      message += `📱 **Phone:** ${order.mobnum}\n`;
+      message += `📝 **Description:** ${description}${itemDetails ? ` (${itemDetails})` : ''}\n`;
+      message += `📦 **Quantity:** ${quantity}\n`;
+      message += `💵 **Unit Price:** ${unitPrice}\n`;
+      message += `💰 **Total Amount:** ${totalAmount}\n`;
+      message += `💳 **Payment:** ${paymentStatus}\n`;
+      message += `📅 **Due Date:** ${dueDate}\n`;
+      message += `🚚 **Delivery:** ${deliveryDate}\n`;
+      message += `📆 **Created:** ${order.created_date || 'N/A'}\n\n`;
+      message += '─────────────────────\n\n';
+    });
+
+    // Split message if too long for Telegram
+    if (message.length > 4000) {
+      const messages = [];
+      let currentMessage = '📋 **Recent Orders (Last 15)**\n\n';
+      
+      rows.forEach((order: any, index: number) => {
+        const paymentStatus = order.payCheck === 'YES' ? '✅ Paid' : '❌ Unpaid';
+        const totalAmount = order.totalAmount ? formatCurrency(parseFloat(order.totalAmount)) : 'N/A';
+        const orderText = `**${index + 1}. #${order.itemNum}** - ${order.NAME || 'Unknown'}\n📱 ${order.mobnum} | 💰 ${totalAmount} | ${paymentStatus}\n\n`;
+        
+        if (currentMessage.length + orderText.length > 4000) {
+          messages.push(currentMessage);
+          currentMessage = orderText;
+        } else {
+          currentMessage += orderText;
+        }
+      });
+      
+      if (currentMessage.length > 0) {
+        messages.push(currentMessage);
+      }
+      
+      // Send first message with edit, others as new messages
+      await ctx.editMessageText(messages[0], {
+        parse_mode: 'Markdown',
+        ...getMainMenuKeyboard()
+      });
+      
+      for (let i = 1; i < messages.length; i++) {
+        await ctx.reply(messages[i], {
+          parse_mode: 'Markdown'
+        });
+      }
+    } else {
+      await ctx.editMessageText(message, {
+        parse_mode: 'Markdown',
+        ...getMainMenuKeyboard()
+      });
+    }
+  } catch (error) {
+    console.error('Recent orders error:', error);
+    await ctx.editMessageText('❌ **Error**\n\nFailed to fetch recent orders.', {
+      parse_mode: 'Markdown',
+      ...getMainMenuKeyboard()
+    });
+  }
+}
+
+// Get unpaid orders
+async function getUnpaidOrders(ctx: BotContext) {
+  try {
+    const [rows] = await db.execute(`
+      SELECT itemNum, NAME, mobnum, totalAmount, duedate
+      FROM register 
+      WHERE (payCheck IS NULL OR payCheck != 'YES') 
+        AND mobnum IS NOT NULL AND mobnum != '' AND mobnum != '0'
+        AND totalAmount IS NOT NULL AND totalAmount > 0
+      ORDER BY duedate ASC
+      LIMIT 50
+    `) as any;
+
+    if (rows.length === 0) {
+      await ctx.editMessageText('✅ **No Unpaid Orders**\n\nAll orders are paid!', {
+        parse_mode: 'Markdown',
+        ...getMainMenuKeyboard()
+      });
+      return;
+    }
+
+    let message = `💳 **Unpaid Orders (${rows.length})**\n\n`;
+    let totalUnpaid = 0;
+    
+    rows.forEach((order: any, index: number) => {
+      const amount = parseFloat(order.totalAmount) || 0;
+      totalUnpaid += amount;
+      const dueDate = formatDate(order.duedate);
+      
+      message += `${index + 1}. **${order.NAME || 'Unknown'}**\n`;
+      message += `   📱 ${order.mobnum}\n`;
+      message += `   💰 ${formatCurrency(amount)} | 📅 ${dueDate}\n\n`;
+    });
+
+    message += `\n💰 **Total Unpaid:** ${formatCurrency(totalUnpaid)}`;
+
+    await ctx.editMessageText(message, {
+      parse_mode: 'Markdown',
+      ...getMainMenuKeyboard()
+    });
+  } catch (error) {
+    console.error('Unpaid orders error:', error);
+    await ctx.editMessageText('❌ **Error**\n\nFailed to fetch unpaid orders.', {
+      parse_mode: 'Markdown',
+      ...getMainMenuKeyboard()
+    });
+  }
+}
+
+// Get business statistics
+async function getBusinessStats(ctx: BotContext) {
+  try {
+    const [totalRows] = await db.execute(`
+      SELECT COUNT(*) as total, SUM(totalAmount) as revenue
+      FROM register 
+      WHERE mobnum IS NOT NULL AND mobnum != '' AND mobnum != '0'
+    `) as any;
+
+    const [paidRows] = await db.execute(`
+      SELECT COUNT(*) as paid, SUM(totalAmount) as paidAmount
+      FROM register 
+      WHERE payCheck = 'YES' AND mobnum IS NOT NULL AND mobnum != '' AND mobnum != '0'
+    `) as any;
+
+    const [todayRows] = await db.execute(`
+      SELECT COUNT(*) as todayOrders, SUM(totalAmount) as todayRevenue
+      FROM register 
+      WHERE DATE(FROM_UNIXTIME(itemNum/1000)) = CURDATE() 
+      AND mobnum IS NOT NULL AND mobnum != '' AND mobnum != '0'
+    `) as any;
+
+    const total = totalRows[0];
+    const paid = paidRows[0];
+    const today = todayRows[0];
+    
+    const unpaidOrders = total.total - paid.paid;
+    const unpaidAmount = parseFloat(total.revenue || 0) - parseFloat(paid.paidAmount || 0);
+    const paymentRate = total.total > 0 ? ((paid.paid / total.total) * 100).toFixed(1) : '0';
+
+    const message = `
+📊 **Business Statistics**
+
+📈 **Total Orders:** ${total.total}
+💰 **Total Revenue:** ${formatCurrency(parseFloat(total.revenue || 0))}
+
+✅ **Paid Orders:** ${paid.paid}
+💵 **Paid Amount:** ${formatCurrency(parseFloat(paid.paidAmount || 0))}
+
+❌ **Unpaid Orders:** ${unpaidOrders}
+💳 **Unpaid Amount:** ${formatCurrency(unpaidAmount)}
+
+📅 **Today's Orders:** ${today.todayOrders}
+🎯 **Today's Revenue:** ${formatCurrency(parseFloat(today.todayRevenue || 0))}
+
+📊 **Payment Rate:** ${paymentRate}%
+    `;
+
+    // Try to edit message first, if it fails, send a new message
+    try {
+      await ctx.editMessageText(message, {
+        parse_mode: 'Markdown',
+        ...getMainMenuKeyboard()
+      });
+    } catch (editError) {
+      // If editing fails, send a new message
+      await ctx.reply(message, {
+        parse_mode: 'Markdown',
+        ...getMainMenuKeyboard()
+      });
+    }
+  } catch (error) {
+    console.error('Business stats error:', error);
+    try {
+      await ctx.editMessageText('❌ **Error**\n\nFailed to fetch business statistics.', {
+        parse_mode: 'Markdown',
+        ...getMainMenuKeyboard()
+      });
+    } catch (editError) {
+      await ctx.reply('❌ **Error**\n\nFailed to fetch business statistics.', {
+        parse_mode: 'Markdown',
+        ...getMainMenuKeyboard()
+      });
+    }
+  }
+}
+
+// Get latest order for a customer
+async function getLatestOrder(ctx: BotContext, phone: string) {
+  try {
+    const [rows] = await db.execute(`
+      SELECT itemNum, NAME, descr, quan, unitprice, totalAmount, duedate, deliverdate, payCheck, col, siz
+      FROM register 
+      WHERE mobnum LIKE ? 
+      ORDER BY itemNum DESC 
+      LIMIT 1
+    `, [`%${phone}%`]) as any;
+
+    if (rows.length === 0) {
+      await ctx.reply(`📭 **No Orders Found**\n\nNo orders found for phone number: ${phone}`, {
+        parse_mode: 'Markdown',
+        ...getMainMenuKeyboard()
+      });
+      return;
+    }
+
+    const order = rows[0];
+    const status = order.payCheck === 'YES' ? '✅ Paid' : '❌ Unpaid';
+    const amount = order.totalAmount ? formatCurrency(parseFloat(order.totalAmount)) : 'N/A';
+    
+    const message = `
+🎯 **Latest Order**
+
+👤 **Customer:** ${order.NAME || 'Unknown'}
+🔢 **Order ID:** ${order.itemNum}
+📝 **Description:** ${order.descr || 'N/A'}
+📦 **Quantity:** ${order.quan || 'N/A'}
+💰 **Amount:** ${amount}
+📅 **Due Date:** ${formatDate(order.duedate)}
+🚚 **Delivery:** ${formatDate(order.deliverdate)}
+💳 **Status:** ${status}
+🎨 **Color:** ${order.col || 'N/A'}
+📏 **Size:** ${order.siz || 'N/A'}
+    `;
+
+    await ctx.reply(message, {
+      parse_mode: 'Markdown',
+      ...getMainMenuKeyboard()
+    });
+  } catch (error) {
+    console.error('Latest order error:', error);
+    await ctx.reply('❌ **Error**\n\nFailed to fetch latest order.', {
+      parse_mode: 'Markdown',
+      ...getMainMenuKeyboard()
+    });
+  }
+}
+
+// Get order details by ID
+async function getOrderDetails(ctx: BotContext, orderId: string) {
+  try {
+    const [rows] = await db.execute(`
+      SELECT itemNum, NAME, descr, quan, unitprice, totalAmount, duedate, deliverdate, payCheck, col, siz, mobnum
+      FROM register 
+      WHERE itemNum = ?
+    `, [orderId]) as any;
+
+    if (rows.length === 0) {
+      await ctx.reply(`📭 **Order Not Found**\n\nNo order found with ID: ${orderId}`, {
+        parse_mode: 'Markdown',
+        ...getMainMenuKeyboard()
+      });
+      return;
+    }
+
+    const order = rows[0];
+    const status = order.payCheck === 'YES' ? '✅ Paid' : '❌ Unpaid';
+    const amount = order.totalAmount ? formatCurrency(parseFloat(order.totalAmount)) : 'N/A';
+    
+    const message = `
+📋 **Order Details**
+
+🔢 **Order ID:** ${order.itemNum}
+👤 **Customer:** ${order.NAME || 'Unknown'}
+📱 **Phone:** ${order.mobnum || 'N/A'}
+📝 **Description:** ${order.descr || 'N/A'}
+📦 **Quantity:** ${order.quan || 'N/A'}
+💰 **Unit Price:** ${order.unitprice ? formatCurrency(parseFloat(order.unitprice)) : 'N/A'}
+💵 **Total Amount:** ${amount}
+📅 **Due Date:** ${formatDate(order.duedate)}
+🚚 **Delivery Date:** ${formatDate(order.deliverdate)}
+💳 **Payment Status:** ${status}
+🎨 **Color:** ${order.col || 'N/A'}
+📏 **Size:** ${order.siz || 'N/A'}
+    `;
+
+    const keyboard = order.payCheck !== 'YES' ? {
+      reply_markup: {
+        inline_keyboard: [
+          [{ text: '💳 Mark as Paid', callback_data: `mark_paid_${order.itemNum}` }],
+          [{ text: '🏠 Main Menu', callback_data: 'main_menu' }]
+        ]
+      }
+    } : getMainMenuKeyboard();
+
+    await ctx.reply(message, {
+      parse_mode: 'Markdown',
+      ...keyboard
+    });
+  } catch (error) {
+    console.error('Order details error:', error);
+    await ctx.reply('❌ **Error**\n\nFailed to fetch order details.', {
+      parse_mode: 'Markdown',
+      ...getMainMenuKeyboard()
+    });
+  }
+}
+
+
 
 // Error handling
 bot.catch((err, ctx) => {
@@ -797,3 +1384,76 @@ bot.launch({
 // Graceful shutdown
 process.once('SIGINT', () => bot.stop('SIGINT'));
 process.once('SIGTERM', () => bot.stop('SIGTERM'));
+
+// Admin configuration
+const adminChatIds = process.env.ADMIN_CHAT_IDS?.split(',').map(id => parseInt(id.trim())) || [];
+const feedbackChannelId = process.env.FEEDBACK_CHANNEL_ID;
+
+// Admin middleware
+const adminOnlyMiddleware = async (ctx: BotContext, next: () => Promise<void>) => {
+  const userId = ctx.from?.id;
+  if (!adminChatIds.includes(userId!)) {
+    await ctx.reply('❌ This command is only available to administrators.');
+    return;
+  }
+  await next();
+};
+
+// Admin feedback management commands
+bot.command('feedback_stats', adminOnlyMiddleware, async (ctx: BotContext) => {
+  try {
+    const [rows] = await db.execute(`
+      SELECT 
+        COUNT(*) as total,
+        SUM(CASE WHEN status = 'unread' THEN 1 ELSE 0 END) as unread,
+        SUM(CASE WHEN status = 'read' THEN 1 ELSE 0 END) as read,
+        SUM(CASE WHEN status = 'replied' THEN 1 ELSE 0 END) as replied
+      FROM feedback
+    `) as any;
+    
+    const stats = rows[0];
+    const message = `
+📊 **Feedback Statistics**
+
+📝 **Total Feedback:** ${stats.total}
+🔴 **Unread:** ${stats.unread}
+👁️ **Read:** ${stats.read}
+✅ **Replied:** ${stats.replied}
+    `;
+    
+    await ctx.reply(message, { parse_mode: 'Markdown' });
+  } catch (error) {
+    await ctx.reply('❌ Failed to fetch feedback statistics.');
+  }
+});
+
+bot.command('recent_feedback', adminOnlyMiddleware, async (ctx: BotContext) => {
+  try {
+    const [rows] = await db.execute(`
+      SELECT user_id, username, first_name, last_name, feedback, status, created_at
+      FROM feedback 
+      ORDER BY created_at DESC 
+      LIMIT 10
+    `) as any;
+    
+    if (rows.length === 0) {
+      await ctx.reply('📭 No recent feedback found.');
+      return;
+    }
+    
+    let message = '📋 **Recent Feedback (Last 10):**\n\n';
+    
+    rows.forEach((row: any, index: number) => {
+      const userInfo = [row.first_name, row.last_name].filter(Boolean).join(' ') || row.username || `User ${row.user_id}`;
+      const statusEmoji = row.status === 'unread' ? '🔴' : row.status === 'read' ? '👁️' : '✅';
+      
+      message += `${index + 1}. ${statusEmoji} **${userInfo}**\n`;
+      message += `   📅 ${new Date(row.created_at).toLocaleDateString()}\n`;
+      message += `   💬 ${row.feedback.substring(0, 100)}${row.feedback.length > 100 ? '...' : ''}\n\n`;
+    });
+    
+    await ctx.reply(message, { parse_mode: 'Markdown' });
+  } catch (error) {
+    await ctx.reply('❌ Failed to fetch recent feedback.');
+  }
+});

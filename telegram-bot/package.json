@@ -1,0 +1,27 @@
+{
+  "name": "garaadka-telegram-bot",
+  "version": "1.0.0",
+  "description": "Telegram bot for Garaadka Laundry Management System",
+  "main": "bot.js",
+  "type": "module",
+  "scripts": {
+    "start": "tsx bot.ts",
+    "dev": "tsx watch bot.ts",
+    "build": "tsc",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": ["telegram", "bot", "laundry", "management"],
+  "author": "Garaadka Team",
+  "license": "MIT",
+  "dependencies": {
+    "telegraf": "^4.15.6",
+    "mysql2": "^3.6.5",
+    "dotenv": "^16.3.1",
+    "axios": "^1.6.2"
+  },
+  "devDependencies": {
+    "@types/node": "^20.10.4",
+    "typescript": "^5.3.3",
+    "tsx": "^4.6.2"
+  }
+}
