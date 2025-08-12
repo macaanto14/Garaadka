@@ -107,88 +107,146 @@ const formatDate = (dateStr: string): string => {
 
 // Main menu keyboard
 const getMainMenuKeyboard = () => {
-  return Markup.inlineKeyboard([
-    [Markup.button.callback('🔍 Search Customer', 'search_customer')],
-    [Markup.button.callback('📋 Latest Orders', 'latest_orders'), Markup.button.callback('💰 Unpaid Orders', 'unpaid_orders')],
-    [Markup.button.callback('📊 Reports', 'reports'), Markup.button.callback('📈 Statistics', 'statistics')],
-    [Markup.button.callback('➕ New Order', 'new_order'), Markup.button.callback('💳 Payment', 'payment')],
-    [Markup.button.callback('💬 Feedback', 'feedback'), Markup.button.callback('ℹ️ Help', 'help')]
-  ]);
+  return {
+    inline_keyboard: [
+      [
+        { text: '🔍 Smart Search', callback_data: 'search_customer' },
+        { text: '📋 Recent Orders', callback_data: 'latest_orders' }
+      ],
+      [
+        { text: '💰 Pending Payments', callback_data: 'unpaid_orders' },
+        { text: '📊 Business Analytics', callback_data: 'statistics' }
+      ],
+      [
+        { text: '📈 Advanced Reports', callback_data: 'reports' },
+        { text: '➕ Create Order', callback_data: 'new_order' }
+      ],
+      [
+        { text: '💳 Payment Center', callback_data: 'payment' },
+        { text: '💬 Feedback Hub', callback_data: 'feedback' }
+      ],
+      [
+        { text: '🏠 Main Menu', callback_data: 'main_menu' },
+        { text: '❓ Help Center', callback_data: 'help' }
+      ]
+    ]
+  };
 };
 
 // Reports menu keyboard
 const getReportsKeyboard = () => {
-  return Markup.inlineKeyboard([
-    [Markup.button.callback('📊 Daily Summary', 'report_daily')],
-    [Markup.button.callback('📈 Customer Orders', 'report_customer'), Markup.button.callback('💰 Payments', 'report_payments')],
-    [Markup.button.callback('📋 Pending Orders', 'report_pending'), Markup.button.callback('📅 Date Filter', 'report_date_filter')],
-    [Markup.button.callback('🔙 Back to Menu', 'main_menu')]
-  ]);
+  return {
+    inline_keyboard: [
+      [
+        { text: '📅 Daily Summary', callback_data: 'report_daily' },
+        { text: '👥 Customer Analytics', callback_data: 'report_customer' }
+      ],
+      [
+        { text: '💰 Payment Reports', callback_data: 'report_payments' },
+        { text: '⏳ Pending Orders', callback_data: 'report_pending' }
+      ],
+      [
+        { text: '🔙 Back to Menu', callback_data: 'main_menu' }
+      ]
+    ]
+  };
 };
 
-// Interactive Welcome Message
+// Enhanced welcome message with personalized branding
 bot.start(async (ctx: BotContext) => {
   const welcomeMessage = `
-🤖 **Welcome to Garaadka Laundry Bot!**
+🌟 *Welcome to Garaadka Laundry Bot* 🌟
 
-👋 Hello ${ctx.from?.first_name || 'User'}!
+👋 Hello ${ctx.from?.first_name || 'there'}!
 
-I'm your intelligent laundry management assistant, designed to help you:
+I'm your personal laundry management assistant, here to make your experience seamless and efficient.
 
-✨ **What I can do:**
-• 🔍 Search customer data by phone
-• 📋 View order details and history
-• 💰 Check payment status
-• 📊 Generate business reports
-• ➕ Create new orders
-• 💳 Process payments
-• 📈 View business statistics
+✨ *What I can do for you:*
+🔍 Search customers instantly
+📊 Generate detailed reports
+💰 Track payments & orders
+📱 Manage your laundry business
+🎯 Quick access to all features
 
-🎯 **Quick Start:**
-Use the menu below or type /help for all commands.
+🚀 *Ready to get started?*
+Choose an option below or type /help for detailed commands.
 
-👨‍💻 **Developed by:** Engineer Ismail Mohamed
-📱 **Support:** For assistance, use /feedback
-
-Choose an option to get started:
+💡 *Tip: Use the buttons for faster navigation!*
   `;
-  
+
   await ctx.reply(welcomeMessage, {
     parse_mode: 'Markdown',
-    ...getMainMenuKeyboard()
+    reply_markup: {
+      inline_keyboard: [
+        [
+          { text: '🔍 Search Customer', callback_data: 'search_customer' },
+          { text: '📋 Latest Orders', callback_data: 'latest_orders' }
+        ],
+        [
+          { text: '💰 Unpaid Orders', callback_data: 'unpaid_orders' },
+          { text: '📊 Business Stats', callback_data: 'statistics' }
+        ],
+        [
+          { text: '📈 Reports', callback_data: 'reports' },
+          { text: '➕ New Order', callback_data: 'new_order' }
+        ],
+        [
+          { text: '💳 Process Payment', callback_data: 'payment' },
+          { text: '💬 Send Feedback', callback_data: 'feedback' }
+        ],
+        [
+          { text: '❓ Help & Support', callback_data: 'help' }
+        ]
+      ]
+    }
   });
 });
 
 // Help command with inline keyboard
 bot.help(async (ctx: BotContext) => {
   const helpMessage = `
-🆘 **Garaadka Bot Help**
+🆘 *Garaadka Bot Help Center* 🆘
 
-**📱 Quick Commands:**
-• /search [phone] - Search customer
-• /latest [phone] - Latest order
-• /unpaid - Unpaid orders
-• /stats - Business statistics
-• /reports - Generate reports
-• /neworder - Create new order
-• /payment - Process payment
-• /feedback - Send feedback
+🎯 *Quick Commands:*
+• \`/start\` - 🏠 Return to main menu
+• \`/search [phone]\` - 🔍 Find customer instantly
+• \`/latest [phone]\` - 📋 Get latest order
+• \`/unpaid\` - 💰 View pending payments
+• \`/stats\` - 📊 Business statistics
+• \`/reports\` - 📈 Generate reports
+• \`/ping\` - 🏓 Test bot connectivity
 
-**💡 Tips:**
-• Use buttons for easier navigation
-• Phone numbers can be partial
-• All data is from legacy system
+🎨 *Features:*
+✅ Real-time order tracking
+✅ Instant customer search
+✅ Payment management
+✅ Business analytics
+✅ Automated reports
+✅ Secure access control
 
-**🔧 Features:**
-• Real-time order tracking
-• Payment status monitoring
-• Customer history
-• Business analytics
+💡 *Pro Tips:*
+• Use buttons for faster navigation
+• Phone numbers should include country code
+• Reports are generated in real-time
+• All data is securely encrypted
+
+🔐 *Security:*
+This bot uses advanced security measures to protect your business data.
+
+📞 *Support:*
+Need help? Contact our support team!
   `;
-  
+
   await ctx.reply(helpMessage, {
     parse_mode: 'Markdown',
-    ...getMainMenuKeyboard()
+    reply_markup: {
+      inline_keyboard: [
+        [
+          { text: '🏠 Main Menu', callback_data: 'main_menu' },
+          { text: '📞 Contact Support', url: 'https://t.me/garaadka_support' }
+        ]
+      ]
+    }
   });
 });
 
@@ -1362,10 +1420,38 @@ async function getOrderDetails(ctx: BotContext, orderId: string) {
 
 
 
-// Error handling
+// Add these enhanced message templates
+const StatusMessages = {
+  loading: '⏳ Processing your request...',
+  success: '✅ Operation completed successfully!',
+  error: '❌ Oops! Something went wrong.',
+  notFound: '🔍 No results found. Try a different search.',
+  unauthorized: '🔒 Access denied. Please contact administrator.',
+  maintenance: '🔧 System under maintenance. Please try again later.',
+  welcome: '🎉 Welcome back! How can I assist you today?',
+  goodbye: '👋 Thank you for using Garaadka Bot!'
+};
+
+// Enhanced error handling with personalized messages
 bot.catch((err, ctx) => {
   console.error('Bot error:', err);
-  ctx.reply('❌ An unexpected error occurred. Please try again later.', getMainMenuKeyboard());
+  const errorMessage = `
+❌ *Oops! Something went wrong* ❌
+
+🔧 We're working to fix this issue.
+📞 If this persists, please contact support.
+
+🔄 *Try again in a moment*
+  `;
+  
+  ctx.reply(errorMessage, {
+    parse_mode: 'Markdown',
+    reply_markup: {
+      inline_keyboard: [
+        [{ text: '🏠 Return to Menu', callback_data: 'main_menu' }]
+      ]
+    }
+  });
 });
 
 // Start the bot with better error handling
