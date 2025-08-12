@@ -77,6 +77,67 @@ db.on('error', (err) => {
   Logger.error('Database connection error', { error: err.message, code: err.code });
 });
 
+// Bot information constants
+const BOT_INFO = {
+  name: 'Garaadka Laundry Bot',
+  shortDescription: '🌟 Garaadka Laundry Management Bot - Your smart assistant for seamless laundry business operations. Search customers, track orders, manage payments, and generate reports instantly!',
+  description: `🏢 **Garaadka Laundry Management Bot**
+
+🚀 Your professional laundry business assistant that streamlines operations and enhances customer service.
+
+✨ **Key Features:**
+🔍 Instant customer search by phone
+📋 Real-time order tracking & management
+💰 Payment processing & monitoring
+📊 Business analytics & reports
+📱 Mobile-first design for on-the-go access
+🔒 Secure & reliable operations
+
+💡 **Perfect for:**
+• Laundry shop owners
+• Staff members
+• Customer service teams
+• Business managers
+
+🎯 **Get started:** Type /start to explore all features!
+
+📞 **Support:** Contact @haajidheere for assistance`,
+  version: '2.0.0',
+  supportContact: '@haajidheere',
+  Name: 'Eng Ismail Mohamed',
+  Email: 'haaji.dheere@gmail.com',
+  Phone: '+251927802065'
+};
+
+// Feedback channel information
+const FEEDBACK_CHANNEL = {
+  name: 'Garaadka Bot Feedback Hub',
+  description: `💬 **Garaadka Bot Feedback Channel**
+
+Welcome to our feedback hub! This channel collects valuable insights from Garaadka Laundry Bot users.
+
+📝 **What you'll find here:**
+• User feedback & suggestions
+• Feature requests
+• Bug reports
+• User experience insights
+• Service improvement ideas
+
+🎯 **Our commitment:**
+✅ Every feedback is reviewed
+✅ Regular improvements based on your input
+✅ Transparent communication
+✅ User-focused development
+
+🤝 **Help us improve:**
+Your feedback drives our innovation. Together, we're building the best laundry management experience!
+
+🔔 **Stay updated:** Enable notifications to see the latest feedback and our responses.
+
+📞 **Direct support:** @haajidheere`,
+  id: process.env.FEEDBACK_CHANNEL_ID
+};
+
 // Bot configuration with logging
 const bot = new Telegraf(process.env.TELEGRAM_BOT_TOKEN!);
 
@@ -971,7 +1032,7 @@ async function generatePendingOrdersReport(ctx: BotContext) {
   }
 }
 
-// Enhanced feedback notification function
+// Enhanced feedback notification with channel info
 async function notifyAdmins(feedbackData: {
   userId: number;
   username?: string;
@@ -980,51 +1041,58 @@ async function notifyAdmins(feedbackData: {
   feedback: string;
   timestamp: Date;
 }) {
-  const userInfo = [
-    feedbackData.firstName,
-    feedbackData.lastName
-  ].filter(Boolean).join(' ') || feedbackData.username || `User ${feedbackData.userId}`;
-
   const feedbackMessage = `
-🔔 **New Feedback Received**
+🆕 **New Feedback Received**
 
-👤 **From:** ${userInfo}
-🆔 **User ID:** ${feedbackData.userId}
-📱 **Username:** @${feedbackData.username || 'N/A'}
+👤 **User:** ${feedbackData.firstName || 'Unknown'} ${feedbackData.lastName || ''}
+🆔 **Username:** @${feedbackData.username || 'N/A'}
+🔢 **User ID:** ${feedbackData.userId}
 ⏰ **Time:** ${feedbackData.timestamp.toLocaleString()}
 
 💬 **Feedback:**
 ${feedbackData.feedback}
 
----
-#feedback #garaadka
+📊 **Channel:** ${FEEDBACK_CHANNEL.name}
+🔗 **Bot:** @${process.env.BOT_USERNAME || 'garaadka_bot'}
   `;
 
-  // Send to admin chat IDs
-  for (const adminId of adminChatIds) {
+  // Send to feedback channel
+  if (FEEDBACK_CHANNEL.id) {
     try {
-      await bot.telegram.sendMessage(adminId, feedbackMessage, {
+      await bot.telegram.sendMessage(FEEDBACK_CHANNEL.id, feedbackMessage, {
         parse_mode: 'Markdown',
         reply_markup: {
-          inline_keyboard: [[
-            { text: '✅ Mark as Read', callback_data: `feedback_read_${feedbackData.userId}` },
-            { text: '💬 Reply to User', callback_data: `feedback_reply_${feedbackData.userId}` }
-          ]]
+          inline_keyboard: [
+            [
+              { text: '✅ Mark as Read', callback_data: `feedback_read_${feedbackData.userId}` },
+              { text: '💬 Reply to User', callback_data: `feedback_reply_${feedbackData.userId}` }
+            ]
+          ]
         }
       });
     } catch (error) {
-      console.error(`Failed to send feedback to admin ${adminId}:`, error);
+      console.error('Failed to send feedback to channel:', error);
     }
   }
 
-  // Send to feedback channel if configured
-  if (feedbackChannelId) {
+  // Send to admin chat IDs
+  const adminChatIds = process.env.ADMIN_CHAT_IDS?.split(',').map(id => parseInt(id.trim())) || [];
+  
+  for (const chatId of adminChatIds) {
     try {
-      await bot.telegram.sendMessage(feedbackChannelId, feedbackMessage, {
-        parse_mode: 'Markdown'
+      await bot.telegram.sendMessage(chatId, feedbackMessage, {
+        parse_mode: 'Markdown',
+        reply_markup: {
+          inline_keyboard: [
+            [
+              { text: '✅ Mark as Read', callback_data: `feedback_read_${feedbackData.userId}` },
+              { text: '💬 Reply to User', callback_data: `feedback_reply_${feedbackData.userId}` }
+            ]
+          ]
+        }
       });
     } catch (error) {
-      console.error('Failed to send feedback to channel:', error);
+      console.error(`Failed to send feedback to admin ${chatId}:`, error);
     }
   }
 }
@@ -1607,6 +1675,55 @@ const adminOnlyMiddleware = async (ctx: BotContext, next: () => Promise<void>) =
   }
   await next();
 };
+
+// Enhanced about command
+bot.command('about', async (ctx: BotContext) => {
+  const aboutMessage = `
+${BOT_INFO.description}
+
+🔢 **Version:** ${BOT_INFO.version}
+📅 **Last Updated:** ${new Date().toLocaleDateString()}
+👥 **Active Users:** ${await getUserCount()}
+📊 **Total Orders Processed:** ${await getOrderCount()}
+
+💬 **Feedback:** Send us your thoughts using /feedback
+🆘 **Support:** ${BOT_INFO.supportContact}
+  `;
+
+  await ctx.reply(aboutMessage, {
+    parse_mode: 'Markdown',
+    reply_markup: {
+      inline_keyboard: [
+        [
+          { text: '🏠 Main Menu', callback_data: 'main_menu' },
+          { text: '💬 Send Feedback', callback_data: 'feedback' }
+        ],
+        [
+          { text: '📞 Contact Support', url: 'https://t.me/garaadka_support' }
+        ]
+      ]
+    }
+  });
+});
+
+// Helper functions for statistics
+async function getUserCount(): Promise<number> {
+  try {
+    // Implement your user counting logic
+    return 0; // Placeholder
+  } catch (error) {
+    return 0;
+  }
+}
+
+async function getOrderCount(): Promise<number> {
+  try {
+    const [rows] = await db.execute('SELECT COUNT(*) as count FROM register');
+    return (rows as any)[0]?.count || 0;
+  } catch (error) {
+    return 0;
+  }
+}
 
 // Admin feedback management commands
 bot.command('feedback_stats', adminOnlyMiddleware, async (ctx: BotContext) => {
