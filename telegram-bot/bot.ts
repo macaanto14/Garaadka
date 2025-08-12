@@ -387,10 +387,19 @@ Need help? Contact our support team!
 
 // Callback query handlers
 bot.action('main_menu', async (ctx) => {
-  await ctx.editMessageText('🏠 **Main Menu**\n\nChoose an option:', {
-    parse_mode: 'Markdown',
-    ...getMainMenuKeyboard()
-  });
+  try {
+    await ctx.editMessageText('🏠 **Main Menu**\n\nChoose an option:', {
+      parse_mode: 'Markdown',
+      reply_markup: getMainMenuKeyboard()
+    });
+  } catch (error) {
+    // If editing fails, send a new message
+    Logger.warn('Failed to edit message, sending new one', { error: error.message });
+    await ctx.reply('🏠 **Main Menu**\n\nChoose an option:', {
+      parse_mode: 'Markdown',
+      reply_markup: getMainMenuKeyboard()
+    });
+  }
 });
 
 bot.action('search_customer', async (ctx) => {
