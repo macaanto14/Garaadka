@@ -65,3 +65,8 @@ npm start
 2. **Get order details**: Send `#12345` for order ID 12345
 3. **Quick customer lookup**: `/latest 0911123456`
 4. **Check unpaid orders**: `/unpaid`
+
+
+pm2 start npm --name "Telegram Bot" -- run server
+
+pm2 start npm --name "Telegram Bot" -- start

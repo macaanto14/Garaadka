@@ -3,10 +3,60 @@ import { message } from 'telegraf/filters';
 import mysql from 'mysql2/promise';
 import dotenv from 'dotenv';
 import axios from 'axios';
+import fs from 'fs';
+import path from 'path';
 
 dotenv.config();
 
-// Database connection
+// Enhanced logging utility
+class Logger {
+  private static logFile = process.env.LOG_FILE || '/var/log/garaadka/bot-detailed.log';
+  
+  static log(level: 'INFO' | 'WARN' | 'ERROR' | 'DEBUG', message: string, data?: any) {
+    const timestamp = new Date().toISOString();
+    const logEntry = {
+      timestamp,
+      level,
+      message,
+      data: data ? JSON.stringify(data) : undefined,
+      pid: process.pid
+    };
+    
+    // Console output for PM2
+    console.log(`[${timestamp}] [${level}] ${message}`, data ? JSON.stringify(data, null, 2) : '');
+    
+    // File logging (if path exists)
+    try {
+      const logDir = path.dirname(this.logFile);
+      if (!fs.existsSync(logDir)) {
+        fs.mkdirSync(logDir, { recursive: true });
+      }
+      fs.appendFileSync(this.logFile, JSON.stringify(logEntry) + '\n');
+    } catch (error) {
+      console.error('Failed to write to log file:', error);
+    }
+  }
+  
+  static info(message: string, data?: any) {
+    this.log('INFO', message, data);
+  }
+  
+  static warn(message: string, data?: any) {
+    this.log('WARN', message, data);
+  }
+  
+  static error(message: string, data?: any) {
+    this.log('ERROR', message, data);
+  }
+  
+  static debug(message: string, data?: any) {
+    if (process.env.NODE_ENV === 'development' || process.env.ENABLE_DEBUG === 'true') {
+      this.log('DEBUG', message, data);
+    }
+  }
+}
+
+// Database connection with logging
 const db = mysql.createPool({
   host: process.env.DB_HOST || 'localhost',
   user: process.env.DB_USER || 'root',
@@ -18,8 +68,23 @@ const db = mysql.createPool({
   queueLimit: 0
 });
 
-// Bot configuration
+// Log database connection events
+db.on('connection', (connection) => {
+  Logger.info('Database connection established', { connectionId: connection.threadId });
+});
+
+db.on('error', (err) => {
+  Logger.error('Database connection error', { error: err.message, code: err.code });
+});
+
+// Bot configuration with logging
 const bot = new Telegraf(process.env.TELEGRAM_BOT_TOKEN!);
+
+Logger.info('Bot starting up', {
+  nodeEnv: process.env.NODE_ENV,
+  botToken: process.env.TELEGRAM_BOT_TOKEN ? 'SET' : 'NOT_SET',
+  dbHost: process.env.DB_HOST
+});
 
 // Session interface
 interface SessionData {
@@ -61,16 +126,25 @@ bot.use(session({
 const whitelistedPhones = process.env.WHITELISTED_PHONES?.split(',') || [];
 const adminPhone = process.env.ADMIN_PHONE;
 
-// Authentication middleware
+// Enhanced middleware with logging
 const authMiddleware = async (ctx: BotContext, next: () => Promise<void>) => {
   const userId = ctx.from?.id;
   const username = ctx.from?.username;
+  const chatId = ctx.chat?.id;
   
-  // For now, we'll use a simple whitelist based on user ID
-  // In production, you'd want to implement proper phone verification
-  const isAuthorized = true; // Simplified for demo
+  Logger.info('User interaction', {
+    userId,
+    username,
+    chatId,
+    messageType: ctx.message ? 'message' : 'callback',
+    text: ctx.message && 'text' in ctx.message ? ctx.message.text : undefined,
+    callbackData: ctx.callbackQuery ? ctx.callbackQuery.data : undefined
+  });
+  
+  const isAuthorized = true; // Your auth logic
   
   if (!isAuthorized) {
+    Logger.warn('Unauthorized access attempt', { userId, username, chatId });
     await ctx.reply('❌ You are not authorized to use this bot.');
     return;
   }
@@ -1432,9 +1506,21 @@ const StatusMessages = {
   goodbye: '👋 Thank you for using Garaadka Bot!'
 };
 
-// Enhanced error handling with personalized messages
+// Enhanced error handling with detailed logging
 bot.catch((err, ctx) => {
-  console.error('Bot error:', err);
+  const errorInfo = {
+    error: err.message,
+    stack: err.stack,
+    userId: ctx.from?.id,
+    username: ctx.from?.username,
+    chatId: ctx.chat?.id,
+    updateType: ctx.updateType,
+    messageText: ctx.message && 'text' in ctx.message ? ctx.message.text : undefined,
+    callbackData: ctx.callbackQuery ? ctx.callbackQuery.data : undefined
+  };
+  
+  Logger.error('Bot error occurred', errorInfo);
+  
   const errorMessage = `
 ❌ *Oops! Something went wrong* ❌
 
@@ -1451,25 +1537,62 @@ bot.catch((err, ctx) => {
         [{ text: '🏠 Return to Menu', callback_data: 'main_menu' }]
       ]
     }
+  }).catch(replyErr => {
+    Logger.error('Failed to send error message', { originalError: err.message, replyError: replyErr.message });
   });
 });
 
-// Start the bot with better error handling
+// Log all database operations
+const loggedDbQuery = async (query: string, params?: any[]) => {
+  const startTime = Date.now();
+  Logger.debug('Database query started', { query, params });
+  
+  try {
+    const [results] = await db.execute(query, params);
+    const duration = Date.now() - startTime;
+    Logger.debug('Database query completed', { query, duration, resultCount: Array.isArray(results) ? results.length : 1 });
+    return [results];
+  } catch (error) {
+    const duration = Date.now() - startTime;
+    Logger.error('Database query failed', { query, params, duration, error: error.message });
+    throw error;
+  }
+};
+
+// Enhanced bot launch with logging
 bot.launch({
   dropPendingUpdates: true
 }).then(() => {
-  console.log('🤖 Garaadka Telegram Bot v2.0 is running!');
-  console.log('📱 Whitelisted phones:', whitelistedPhones);
-  console.log('🔑 Bot token configured:', process.env.TELEGRAM_BOT_TOKEN ? 'Yes' : 'No');
+  Logger.info('Bot launched successfully', {
+    timestamp: new Date().toISOString(),
+    environment: process.env.NODE_ENV,
+    pid: process.pid
+  });
 }).catch((error) => {
-  console.error('❌ Failed to start bot:', error.message);
-  console.error('Full error:', error);
+  Logger.error('Bot launch failed', { error: error.message, stack: error.stack });
   process.exit(1);
 });
 
-// Graceful shutdown
-process.once('SIGINT', () => bot.stop('SIGINT'));
-process.once('SIGTERM', () => bot.stop('SIGTERM'));
+// Graceful shutdown with logging
+process.once('SIGINT', () => {
+  Logger.info('Received SIGINT, shutting down gracefully');
+  bot.stop('SIGINT');
+});
+
+process.once('SIGTERM', () => {
+  Logger.info('Received SIGTERM, shutting down gracefully');
+  bot.stop('SIGTERM');
+});
+
+// Log unhandled errors
+process.on('unhandledRejection', (reason, promise) => {
+  Logger.error('Unhandled Rejection', { reason, promise: promise.toString() });
+});
+
+process.on('uncaughtException', (error) => {
+  Logger.error('Uncaught Exception', { error: error.message, stack: error.stack });
+  process.exit(1);
+});
 
 // Admin configuration
 const adminChatIds = process.env.ADMIN_CHAT_IDS?.split(',').map(id => parseInt(id.trim())) || [];
